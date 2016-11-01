@@ -1,0 +1,146 @@
+// Fill out your copyright notice in the Description page of Project Settings.
+
+#pragma once
+
+#include "GameFramework/Character.h"
+#include "Perception/PawnSensingComponent.h"
+#include "BehaviorTree/BehaviorTree.h"
+#include "MyAICharacter.generated.h"
+
+UENUM(BlueprintType)		//"BlueprintType" is essential to include
+enum class EAIState : uint8
+{
+	AI_AttackingTarget 	UMETA(DisplayName = "AttackingTarget"),
+	AI_HelpingFriendly 	UMETA(DisplayName = "HelpingFriendly"),
+	AI_ChasingTarget 	UMETA(DisplayName = "ChasingTarget"),
+	AI_ChasingSound 	UMETA(DisplayName = "ChasingSound"),
+	AI_Patrolling		UMETA(DisplayName = "Patrolling"),
+	AI_HeldUp			UMETA(DisplayName = "HeldUp"),
+	AI_None				UMETA(DisplayName = "None")
+};
+
+UCLASS()
+class CODEAI_API AMyAICharacter : public ACharacter
+{
+	GENERATED_BODY()
+
+	/*		HEARING		*/
+	//Sound the AI makes when they found a player
+	UPROPERTY(EditDefaultsOnly)
+		USoundBase* PlayerFoundSound;
+	//Sound the AI makes when they heard a sound
+	UPROPERTY(EditDefaultsOnly)
+		USoundBase* SoundHeardSound;
+	//Sound the AI makes when they get hurt
+	UPROPERTY(EditDefaultsOnly)
+		USoundBase* DamagedSound;
+	//Sound the AI makes when they die
+	UPROPERTY(EditDefaultsOnly)
+		USoundBase* KilledSound;
+	//The distance at which even a sound will make the AI know where the player is
+	UPROPERTY(EditAnywhere)
+		float MinHearingThresh;
+	/*		HEARING		*/
+
+	//Stores a reference to the pawn the AI is chasing
+	class ACodeAICharacter* ChasingPawn;
+	//Stores the index of the current target point to chase
+	uint8 TargetPointNum;
+
+	/*		HEALTH		*/
+	float Health;
+	UPROPERTY(EditDefaultsOnly)
+		float MaxHealth;
+	//Damage to deal to the player each hit
+	UPROPERTY(EditDefaultsOnly)
+		float DealingDamage;
+	//Time between the moment when the AI attacks the player
+	UPROPERTY(EditDefaultsOnly)
+		float MinAttackRate;
+	//Extra time to add in between attacks
+	UPROPERTY(EditDefaultsOnly)
+		float MaxAttackRate;
+	float Time;
+	float ExtraTime;
+	/*		HEALTH		*/
+
+	/*		BOOLEANS		*/
+	//Indicates whether the player is in sight
+	uint8 bCanSeePlayer : 1;
+	//Indicates if a noise was heard
+	uint8 bHeardNoise : 1;
+	//Indicates that the player is visible, but in cover,
+	//hence he shouldn't be seen from a certain angle
+	uint8 bSightBlockedByCover : 1;
+	//Indicates whether the order to increment the
+	//target points by should be reversed
+	uint8 bReverseTargetPoints : 1;
+	//Indicates whether the AI is pointing a weapon
+	uint8 bIsAiming : 1;
+	/*If set to true, the AI will go to the first
+	target point when it reached the last one, otherwise
+	it will rewing through the target points*/
+	UPROPERTY(EditDefaultsOnly)
+		bool bResetTargetPoints;
+	/*		BOOLEANS		*/
+
+public:
+
+	/*		CLASS FUNCTIONS		*/
+	AMyAICharacter();
+	virtual void BeginPlay() override;
+	virtual void Tick (float DeltaTime) override;
+	virtual void SetupPlayerInputComponent(class UInputComponent* InputComponent) override;
+	/*		CLASS FUNCTIONS		*/
+
+	/*		COMPONENTS		*/
+	UPROPERTY(VisibleAnywhere, Category = "AI")
+		class UPawnSensingComponent* PawnSensingComp;
+	UPROPERTY(EditAnywhere, Category = "AI")
+		class UBehaviorTree* BehaviorTree;
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+		class UPawnNoiseEmitterComponent* PawnNoiseEmitterComp;
+	/*		COMPONENTS		*/
+
+	/*		SENSING COMPONENT'S FUNCTIONS		*/
+	UFUNCTION()
+		void OnSeePlayer(APawn* Pawn);
+	UFUNCTION()
+		void OnHearNoise(APawn* PawnInstigator, const FVector& Location, float Volume);
+	void DetectPlayer(class AAnAIController* AICon, APawn* Pawn);
+	void SetNoiseHeard(bool bHeard);
+	bool CheckLineOfSightTo(APawn* pawn);
+	/*Plays a sound and reports it to the game*/
+	void ReportNoise(USoundBase* SoundToPlay, float Volume);	
+	/*		SENSING COMPONENT'S FUNCTIONS		*/
+
+	/*		DAMAGE		*/
+	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const & DamageEvent, AController * EventInstigator, AActor * DamageCauser);
+	FORCEINLINE float GetDamage() const { return DealingDamage; }
+	/*		DAMAGE		*/
+
+	/*		TARGET POINTS		*/
+	//Array of TargetPoints to iterate through
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Target Point", ExposeOnSpawn = true), Category = TargetPoints)
+		TArray<class ABotTargetPoint*> TargetPoints;
+	//Increments the index of the target points
+	void IncrementTargetNum();
+	FORCEINLINE uint8 GetTargetNum() const { return TargetPointNum; }
+	/*		TARGET POINTS		*/
+
+	/*		WEAPON		*/
+	bool AddWeapon(class AWeaponItem* WeaponItem);
+	void AimWeapon();
+	void LowerWeapon();
+	void ShootWeapon();
+	void SufferHoldUp();
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Weapon", ExposeOnSpawn = true), Category = Weapon)
+		class AWeaponItem* Weapon;
+	UPROPERTY(BlueprintReadOnly, Category = Weapon)
+		bool bIsPistolEquipped;
+	UPROPERTY(BlueprintReadOnly, Category = Weapon)
+		bool bIsRifleEquipped;
+	FORCEINLINE bool GetIsAiming() const { return bIsAiming; }
+	/*		WEAPON		*/
+	
+};
