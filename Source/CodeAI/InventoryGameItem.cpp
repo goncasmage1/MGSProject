@@ -14,12 +14,12 @@ void AInventoryGameItem::BeginPlay()
 	Super::BeginPlay();
 }
 
-void AInventoryGameItem::UseItemPressed(APawn* Pawn)
+void AInventoryGameItem::UseItemPressed()
 {
 
 }
 
-void AInventoryGameItem::UseItemReleased(APawn* Pawn)
+void AInventoryGameItem::UseItemReleased()
 {
 
 }

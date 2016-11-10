@@ -12,8 +12,10 @@ UCLASS()
 class CODEAI_API APlayerHUD : public AHUD
 {
 	GENERATED_BODY()
-	
-	TArray<AActor*> RadarArray;
+
+	TArray<AActor*> Actors;
+	TArray<class AMGSCube*> CubesArray;
+	TArray<AActor*> EnemiesArray;
 
 public:
 
@@ -25,6 +27,8 @@ public:
 		float ObjectDistance = 10.f;
 	UPROPERTY(BlueprintReadWrite)
 		float RadarSize = 75;
+
+	void BeginPlay() override;
 
 	UFUNCTION(BlueprintCallable, Category = Minimap)
 		void AddToRadar(AActor* NewActor);
@@ -38,11 +42,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Minimap)
 		FVector2D GetRadarDotPosition(FVector Location);
 
-	UFUNCTION(BlueprintCallable, Category = Minimap)
-		void DrawBorder();
+	//Draws the minimap border
+	void DrawBorder();
+	//Draw the enemies and the enemy cones
+	void DrawEnemies();
+	//Draw the cubes' and walls' borders
+	void DrawCubes();
 
 	UFUNCTION(BlueprintCallable, Category = Minimap)
 		void ContinueDrawHUD(int32 SizeX, int32 SizeY);
-	
-	
+		
 };

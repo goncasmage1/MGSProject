@@ -31,8 +31,8 @@ public:
 	AInventoryGameItem();
 	virtual void BeginPlay() override;
 
-	virtual void UseItemPressed(APawn* Pawn);
-	virtual void UseItemReleased(APawn* Pawn);
+	virtual void UseItemPressed();
+	virtual void UseItemReleased();
 	UFUNCTION(BlueprintImplementableEvent, Category = Item)
 		void MenuUse();
 

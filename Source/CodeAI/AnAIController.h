@@ -58,8 +58,6 @@ public:
 	/*Executes right when the controller possess a Pawn*/
 	virtual void Possess(APawn* Pawn) override;
 
-	void HandleWeaponFiring();
-
 	void SetState(EAIState NewState);
 	EAIState GetState() const;
 

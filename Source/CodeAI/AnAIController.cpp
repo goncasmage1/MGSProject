@@ -36,14 +36,6 @@ void AAnAIController::Possess(APawn* pawn)
 	}
 }
 
-void AAnAIController::HandleWeaponFiring()
-{
-	AMyAICharacter* AICharacter = Cast<AMyAICharacter>(GetPawn());
-	if (AICharacter) {
-		AICharacter->ShootWeapon();
-	}
-}
-
 void AAnAIController::SetState(EAIState NewState)
 {
 	if (BlackboardComp)
@@ -56,7 +48,7 @@ EAIState AAnAIController::GetState() const
 {
 	if (BlackboardComp)
 	{
-		BlackboardComp->GetValueAsEnum(CurrentStateKey);
+		return (EAIState)BlackboardComp->GetValueAsEnum(CurrentStateKey);
 	}
 	return EAIState::AI_None;
 }

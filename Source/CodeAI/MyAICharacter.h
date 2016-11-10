@@ -25,18 +25,21 @@ class CODEAI_API AMyAICharacter : public ACharacter
 	GENERATED_BODY()
 
 	/*		HEARING		*/
-	//Sound the AI makes when they found a player
+	//Sound the AI makes when it found a player
 	UPROPERTY(EditDefaultsOnly)
 		USoundBase* PlayerFoundSound;
-	//Sound the AI makes when they heard a sound
+	//Sound the AI makes when it hears a sound
 	UPROPERTY(EditDefaultsOnly)
 		USoundBase* SoundHeardSound;
-	//Sound the AI makes when they get hurt
+	//Sound the AI makes when it got hurt
 	UPROPERTY(EditDefaultsOnly)
 		USoundBase* DamagedSound;
-	//Sound the AI makes when they die
+	//Sound the AI makes when it dies
 	UPROPERTY(EditDefaultsOnly)
 		USoundBase* KilledSound;
+	//Sound the AI makes when it is held up
+	UPROPERTY(EditDefaultsOnly)
+		USoundBase* HeldUpSound;
 	//The distance at which even a sound will make the AI know where the player is
 	UPROPERTY(EditAnywhere)
 		float MinHearingThresh;
@@ -69,6 +72,8 @@ class CODEAI_API AMyAICharacter : public ACharacter
 	uint8 bCanSeePlayer : 1;
 	//Indicates if a noise was heard
 	uint8 bHeardNoise : 1;
+	//Indicates if the AI is being held up
+	uint8 bHeldUp : 1;
 	//Indicates that the player is visible, but in cover,
 	//hence he shouldn't be seen from a certain angle
 	uint8 bSightBlockedByCover : 1;
@@ -105,13 +110,19 @@ public:
 	/*		SENSING COMPONENT'S FUNCTIONS		*/
 	UFUNCTION()
 		void OnSeePlayer(APawn* Pawn);
+	void PlayerSeen();
 	UFUNCTION()
 		void OnHearNoise(APawn* PawnInstigator, const FVector& Location, float Volume);
+	//Changes the necessary blackboard keys so that the AI bot attacks the player
 	void DetectPlayer(class AAnAIController* AICon, APawn* Pawn);
 	void SetNoiseHeard(bool bHeard);
+	//Checks whether the AI has a line of sight to the player
 	bool CheckLineOfSightTo(APawn* pawn);
+	//Releases the AI bot from a hold up
+	void FreeFromHoldUp();
 	/*Plays a sound and reports it to the game*/
 	void ReportNoise(USoundBase* SoundToPlay, float Volume);	
+	FORCEINLINE bool IsHeldUp() const { return bHeldUp; }
 	/*		SENSING COMPONENT'S FUNCTIONS		*/
 
 	/*		DAMAGE		*/

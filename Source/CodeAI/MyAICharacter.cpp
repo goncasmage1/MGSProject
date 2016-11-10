@@ -38,6 +38,7 @@ AMyAICharacter::AMyAICharacter()
 
 	bCanSeePlayer = false;
 	bHeardNoise = false;
+	bHeldUp = false;
 	bSightBlockedByCover = false;
 	bReverseTargetPoints = false;
 	bIsAiming = false;
@@ -50,7 +51,7 @@ void AMyAICharacter::BeginPlay()
 
 	//Register the function that is going to fire when the character sees a Pawn
 	if (PawnSensingComp) {
-		PawnSensingComp->OnSeePawn.AddDynamic(this, &AMyAICharacter::OnSeePlayer);
+		//PawnSensingComp->OnSeePawn.AddDynamic(this, &AMyAICharacter::OnSeePlayer);
 		PawnSensingComp->OnHearNoise.AddDynamic(this, &AMyAICharacter::OnHearNoise);
 	}
 	if (Weapon) {
@@ -62,6 +63,16 @@ void AMyAICharacter::BeginPlay()
 		else {
 			bIsRifleEquipped = true;
 			Weapon->GetGunMesh()->AttachToComponent(GetMesh(), FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), FName("RifleGrip"));
+		}
+	}
+
+	//Get a reference to the player character
+	TArray<AActor*> Characters;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), ACodeAICharacter::StaticClass(), Characters);
+	for (AActor* Char : Characters) {
+		ACodeAICharacter* NewChar = Cast<ACodeAICharacter>(Char);
+		if (NewChar) {
+			ChasingPawn = NewChar;
 		}
 	}
 }
@@ -87,7 +98,7 @@ void AMyAICharacter::Tick(float DeltaTime)
 				AIController->SetPlayerLocation(ChasingPawn->GetActorLocation());
 				AIController->SetState(EAIState::AI_ChasingTarget);
 				AIController->ClearSeenTarget();
-				ChasingPawn = nullptr;
+				LowerWeapon();
 				bCanSeePlayer = false;
 				bSightBlockedByCover = false;
 				Time = 0.f;
@@ -95,15 +106,35 @@ void AMyAICharacter::Tick(float DeltaTime)
 			}
 		}
 	}
+	//If the player is in sight but is also in cover at an inapropriate angle
 	else if (bSightBlockedByCover && !ChasingPawn->InCover() && CheckLineOfSightTo(ChasingPawn)) {
 		AAnAIController* AIController = Cast<AAnAIController>(GetController());
 		if (AIController) {
 			DetectPlayer(AIController, ChasingPawn);
 		}
 	}
+	//If the player is within sight
+	else if (CheckLineOfSightTo(ChasingPawn)){
+		PlayerSeen();
+	}
+	
 }
 
 void AMyAICharacter::OnSeePlayer(APawn* Pawn)
+{
+	AAnAIController* AIController = Cast<AAnAIController>(GetController());
+	//Set the seen target on the blackboard
+	if (AIController) {
+		AMyAICharacter* AIChar = Cast<AMyAICharacter>(Pawn);
+		if (AIChar) {
+			if (AIChar->IsHeldUp()) {
+				AIChar->FreeFromHoldUp();
+			}
+		}
+	}
+}
+
+void AMyAICharacter::PlayerSeen()
 {
 	AAnAIController* AIController = Cast<AAnAIController>(GetController());
 	//Set the seen target on the blackboard
@@ -112,20 +143,21 @@ void AMyAICharacter::OnSeePlayer(APawn* Pawn)
 		if (AIController->GetSeenTarget()) {
 			return;
 		}
-		ChasingPawn = Cast<ACodeAICharacter>(Pawn);
 
-		if (ChasingPawn->InCover()) {
-			float Dot = FVector::DotProduct(ChasingPawn->GetActorForwardVector(), GetActorForwardVector());
+		if (ChasingPawn) {
+			if (ChasingPawn->InCover()) {
+				float Dot = FVector::DotProduct(ChasingPawn->GetActorForwardVector(), GetActorForwardVector());
 
-			if (Dot <= 0.1) {
-				DetectPlayer(AIController, Pawn);
+				if (Dot <= 0.1) {
+					DetectPlayer(AIController, ChasingPawn);
+				}
+				else {
+					bSightBlockedByCover = true;
+				}
 			}
 			else {
-				bSightBlockedByCover = true;
+				DetectPlayer(AIController, ChasingPawn);
 			}
-		}
-		else {
-			DetectPlayer(AIController, Pawn);
 		}
 	}
 }
@@ -133,7 +165,7 @@ void AMyAICharacter::OnSeePlayer(APawn* Pawn)
 void AMyAICharacter::OnHearNoise(APawn * PawnInstigator, const FVector & Location, float Volume)
 {
 	AAnAIController* AIController = Cast<AAnAIController>(GetController());
-	if (AIController) {
+	if (AIController && (AIController->GetState() != EAIState::AI_HeldUp)) {
 		
 		AMyAICharacter* AICharacter = Cast<AMyAICharacter>(PawnInstigator);
 		ACodeAICharacter* Player = Cast<ACodeAICharacter>(PawnInstigator);
@@ -168,17 +200,17 @@ void AMyAICharacter::OnHearNoise(APawn * PawnInstigator, const FVector & Locatio
 
 void AMyAICharacter::DetectPlayer(class AAnAIController* AICon, APawn * Pawn)
 {
-	GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, TEXT("I see you"));
-	AICon->SetSeenTarget(Pawn);
-	AICon->SetState(EAIState::AI_AttackingTarget);
-	AICon->SetSlowSpeed(false);
-	if (ChasingPawn == nullptr) {
-		ChasingPawn = Cast<ACodeAICharacter>(Pawn);
-	}
-	bCanSeePlayer = true;
-	//If there is a sound, play it
-	if (PlayerFoundSound) {
-		ReportNoise(PlayerFoundSound, 1.f);
+	if (AICon->GetState() != EAIState::AI_HeldUp) {
+		GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, TEXT("I see you"));
+		AICon->SetSeenTarget(Pawn);
+		AICon->SetState(EAIState::AI_AttackingTarget);
+		AICon->SetSlowSpeed(false);
+		bCanSeePlayer = true;
+		AimWeapon();
+		//If there is a sound, play it
+		if (PlayerFoundSound) {
+			ReportNoise(PlayerFoundSound, 1.f);
+		}
 	}
 }
 
@@ -210,7 +242,7 @@ void AMyAICharacter::AimWeapon()
 {
 	if (Weapon) {
 		bIsAiming = true;
-		Weapon->UseItemPressed(this);
+		Weapon->UseItemPressed();
 	}
 }
 
@@ -225,36 +257,53 @@ void AMyAICharacter::LowerWeapon()
 void AMyAICharacter::ShootWeapon()
 {
 	if (Weapon) {
-		Weapon->UseItemReleased(this);
+		Weapon->UseItemReleased();
 	}
 }
 
 void AMyAICharacter::SufferHoldUp()
 {
 	AAnAIController* AIController = Cast<AAnAIController>(GetController());
-	if (AIController) {
-		if (!(AIController->GetState() == EAIState::AI_AttackingTarget) &&
-			!(AIController->GetState() == EAIState::AI_ChasingTarget && GetVelocity().Size() != 0.f))
-		AIController->SetState(EAIState::AI_HeldUp);
+	if (AIController &&
+			AIController->GetState() != EAIState::AI_HeldUp &&
+			AIController->GetState() != EAIState::AI_AttackingTarget &&
+			AIController->GetState() != EAIState::AI_ChasingTarget) {
+			GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, TEXT("HeldUp"));
+			AIController->SetState(EAIState::AI_HeldUp);
+			bHeldUp = true;
+		if (HeldUpSound) {
+			UGameplayStatics::PlaySound2D(GetWorld(), HeldUpSound);
+		}
 	}
 }
 
 bool AMyAICharacter::CheckLineOfSightTo(APawn * pawn)
 {
 	if (PawnSensingComp->HasLineOfSightTo(pawn)) {
-		FVector Line = GetActorLocation() - pawn->GetActorLocation();
+		FVector LineAux = GetActorLocation() - pawn->GetActorLocation();
+		//Divides each float of the line vector by the size of the vector to get a size of 1
+		FVector Line = FVector((LineAux.X / LineAux.Size()), (LineAux.Y / LineAux.Size()), (LineAux.Z / LineAux.Size()));
 		float Distance = Line.Size();
-		float MaxDistance = (PawnSensingComp->SightRadius / 2) / FMath::Tan(PawnSensingComp->GetPeripheralVisionAngle() / 2);
+		float MaxDistance = (PawnSensingComp->SightRadius / 2) / UKismetMathLibrary::Tan(FMath::DegreesToRadians(PawnSensingComp->GetPeripheralVisionAngle() / 2));
 
-		float Angle = FVector::DotProduct(GetActorForwardVector(), Line);
-
+		float Angle = FMath::Abs(FVector::DotProduct(GetActorForwardVector(), Line));
+		GEngine->AddOnScreenDebugMessage(-1, .5f, FColor::Red, FString::Printf(TEXT("%f"), Angle));
 		if (Distance < MaxDistance &&
-		Angle < - (1.f - PawnSensingComp->GetPeripheralVisionAngle() / 90.f)) {
+				Angle > (1.f - PawnSensingComp->GetPeripheralVisionAngle() / 90.f)) {
 			return true;
 		}
 		return false;
 	}
 	return false;
+}
+
+void AMyAICharacter::FreeFromHoldUp()
+{
+	bHeldUp = false;
+	AAnAIController* AIController = Cast<AAnAIController>(GetController());
+	if (AIController) {
+		AIController->SetState(EAIState::AI_Patrolling);
+	}
 }
 
 void AMyAICharacter::IncrementTargetNum()
@@ -291,6 +340,7 @@ float AMyAICharacter::TakeDamage(float DamageAmount, FDamageEvent const & Damage
 			AIController->SetPlayerLocation(PC->GetPawn()->GetActorLocation());
 			AIController->SetState(EAIState::AI_ChasingTarget);
 			AIController->SetSlowSpeed(false);
+			bHeldUp = false;
 		}
 	}
 	if (ActualDamage > 0.f) {

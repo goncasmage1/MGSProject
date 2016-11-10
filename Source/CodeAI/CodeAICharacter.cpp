@@ -278,6 +278,7 @@ void ACodeAICharacter::HideLeftMenu()
 		bLeftMenuOpen = false;
 		//If no item was equipped, it is now
 		if (!bItemEquipped) {
+			UGameplayStatics::PlaySound2D(GetWorld(), ItemUnequip);
 			bItemEquipped = true;
 		}
 		if (MyPC) {
@@ -357,13 +358,13 @@ void ACodeAICharacter::ActionReleased()
 
 void ACodeAICharacter::UsePressed()
 {
-	InventoryArray[EquippedIndex]->UseItemPressed(this);
+	InventoryArray[EquippedIndex]->UseItemPressed();
 	ToogleCharacterControls(false);
 }
 
 void ACodeAICharacter::UseReleased()
 {
-	InventoryArray[EquippedIndex]->UseItemReleased(this);
+	InventoryArray[EquippedIndex]->UseItemReleased();
 	ToogleCharacterControls(true);
 	AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
 	if (MyPC) {
@@ -484,6 +485,7 @@ bool ACodeAICharacter::AddWeapon(AWeaponItem * WeaponItem)
 		else {
 			WeaponItem->GetGunMesh()->AttachToComponent(GetMesh(), FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), FName("RifleGrip"));
 		}
+		WeaponItem->SetOwner(this);
 		return true;
 	}
 	return false;

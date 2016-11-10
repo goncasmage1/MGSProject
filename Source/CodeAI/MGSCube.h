@@ -9,10 +9,8 @@ UCLASS()
 class CODEAI_API AMGSCube : public AActor
 {
 	GENERATED_BODY()
-	
-public:	
-	// Sets default values for this actor's properties
-	AMGSCube();
+
+protected:
 
 	UPROPERTY(VisibleAnywhere)
 		USceneComponent* SceneComp;
@@ -20,4 +18,8 @@ public:
 	UPROPERTY(VisibleAnywhere)
 		UStaticMeshComponent* CubeMesh;
 	
+public:	
+	// Sets default values for this actor's properties
+	AMGSCube();
+
 };

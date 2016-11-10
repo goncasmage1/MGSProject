@@ -1,0 +1,7 @@
+TO DO:
+
+	- Smooth camera transition
+	- Change items' colors
+	- Improve AI
+	- Create levels
+	- Finish radar

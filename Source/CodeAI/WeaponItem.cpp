@@ -16,7 +16,7 @@ AWeaponItem::AWeaponItem()
 	MaxAmmo = 20;
 	ClipAmount = ClipSize;
 	MagsAmount = 0;
-	HoldUpDistance = 250.f;
+	HoldUpDistance = 125.f;
 
 	bIsAimed = false;
 	bCancelled = false;
@@ -28,7 +28,7 @@ void AWeaponItem::Tick(float DeltaSeconds)
 
 	if (bIsAimed) {
 		FVector Start = GunMesh->GetSocketLocation(TEXT("MuzzleSocket"));
-		FVector Player = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0)->GetActorForwardVector();
+		FVector Player = Owner->GetActorForwardVector();
 		FVector End = Start + FVector(Player.X, Player.Y, 0.f)* 1000.f;
 		DrawDebugLine(GetWorld(), Start, End, FColor::Red, false, -1.f, 0, 2.f);
 	}
@@ -60,6 +60,11 @@ void AWeaponItem::Reload()
 	}
 }
 
+void AWeaponItem::SetOwner(AActor* NewOwner)
+{
+	Owner = NewOwner;
+}
+
 void AWeaponItem::AIEquip(class AMyAICharacter* AIChar)
 {
 	AIChar->AddWeapon(this);
@@ -67,30 +72,30 @@ void AWeaponItem::AIEquip(class AMyAICharacter* AIChar)
 	SM_ItemPickup->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	BC_BoxComp->bGenerateOverlapEvents = false;
 	GunMesh->SetVisibility(true);
+	Owner = AIChar;
 }
 
-void AWeaponItem::UseItemPressed(APawn* Pawn)
+void AWeaponItem::UseItemPressed()
 {
 	bIsAimed = true;
-	ACodeAICharacter* Char = Cast<ACodeAICharacter>(Pawn);
-	if (Char) {
+	if (Owner) {
 		TArray<FHitResult> Hits;
 		FVector Start = GunMesh->GetSocketLocation(TEXT("MuzzleSocket"));
-		FVector End = Start + Char->GetActorForwardVector() * HoldUpDistance;
-		GetWorld()->SweepMultiByChannel(Hits, Start, End, FQuat::Identity, ECC_Visibility, FCollisionShape::MakeSphere(HoldUpDistance));
-		DrawDebugSphere(GetWorld(), Start, HoldUpDistance, 50, FColor::Green, true);
+		FVector End = Start + Owner->GetActorForwardVector() * HoldUpDistance;
+		FCollisionQueryParams TraceParams(FName(TEXT("OverlapMulti Trace")), false);
 
+		GetWorld()->SweepMultiByObjectType(Hits, Start, End, FQuat::Identity, ECC_Pawn, FCollisionShape::MakeSphere(HoldUpDistance), TraceParams);
 		for (FHitResult nHit : Hits) {
 			AMyAICharacter* AI = Cast<AMyAICharacter>(nHit.GetActor());
-			GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, TEXT("Found Bot"));
-			if (AI) { 
+			if (AI) {
 				AI->SufferHoldUp();
+				continue;
 			}
 		}
 	}
 }
 
-void AWeaponItem::UseItemReleased(APawn* Pawn)
+void AWeaponItem::UseItemReleased()
 {
 	if (!bCancelled) {
 		bIsAimed = false;
@@ -105,7 +110,7 @@ void AWeaponItem::UseItemReleased(APawn* Pawn)
 				UGameplayStatics::PlaySoundAtLocation(GetWorld(), GunShotSound, GetActorLocation(), 1.f);
 			}
 			DecrementAmmo();
-			ACodeAICharacter* Char = Cast<ACodeAICharacter>(Pawn);
+			ACodeAICharacter* Char = Cast<ACodeAICharacter>(Owner);
 			if (Char) {
 				FVector Start = GunMesh->GetSocketLocation(TEXT("MuzzleSocket"));
 				FVector Player = Char->GetActorForwardVector();
@@ -121,7 +126,7 @@ void AWeaponItem::UseItemReleased(APawn* Pawn)
 				}
 			}
 			else {
-				AMyAICharacter* AI = Cast<AMyAICharacter>(Pawn);
+				AMyAICharacter* AI = Cast<AMyAICharacter>(Owner);
 				if (AI) {
 					FVector Start = GunMesh->GetSocketLocation(TEXT("MuzzleSocket"));
 					FVector Bot = AI->GetActorForwardVector();

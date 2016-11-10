@@ -24,6 +24,8 @@ protected:
 	UPROPERTY(EditDefaultsOnly)
 		class USoundBase* OutOfAmmoSound;
 
+	AActor* Owner;
+
 	//Amount of ammo per clip
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 		int32 ClipSize;
@@ -67,6 +69,9 @@ public:
 	FORCEINLINE bool IsPistol() {return bIsPistol;}
 	FORCEINLINE bool ClipIsEmpty() {return ClipAmount == 0;}
 
+	void SetOwner(AActor* NewOwner) override;
+	FORCEINLINE AActor* GetOwner() { return Owner; }
+
 	UFUNCTION(BlueprintImplementableEvent, Category = Weapon)
 		void Equip();
 	UFUNCTION(BlueprintImplementableEvent, Category = Weapon)
@@ -74,8 +79,8 @@ public:
 
 	void AIEquip(class AMyAICharacter* AIChar);
 
-	void UseItemPressed(APawn* Pawn) override;
-	void UseItemReleased(APawn* Pawn) override;
+	void UseItemPressed() override;
+	void UseItemReleased() override;
 	UFUNCTION(BlueprintCallable, category = Weapon)
 		void CancelUse();
 
