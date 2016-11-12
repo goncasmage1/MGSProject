@@ -4,7 +4,6 @@
 #include "MyAICharacter.h"
 #include "AnAIController.h"
 #include "CodeAICharacter.h"
-#include "PlayerHUD.h"
 #include "MyPlayerController.h"
 #include "BotTargetPoint.h"
 #include "WeaponItem.h"
@@ -203,15 +202,15 @@ void AMyAICharacter::DetectPlayer(class AAnAIController* AICon, APawn * Pawn)
 {
 	if (AICon->GetState() != EAIState::AI_HeldUp) {
 		GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, TEXT("I see you"));
-		//If there is a sound and the AI isn't already chasing the player, play it
-		if (PlayerFoundSound && AICon->GetState() != EAIState::AI_ChasingTarget) {
-			ReportNoise(PlayerFoundSound, 1.f);
-		}
 		AICon->SetSeenTarget(Pawn);
 		AICon->SetState(EAIState::AI_AttackingTarget);
 		AICon->SetSlowSpeed(false);
 		bCanSeePlayer = true;
 		AimWeapon();
+		//If there is a sound, play it
+		if (PlayerFoundSound) {
+			ReportNoise(PlayerFoundSound, 1.f);
+		}
 	}
 }
 
@@ -284,13 +283,13 @@ bool AMyAICharacter::CheckLineOfSightTo(APawn * pawn)
 		FVector LineAux = GetActorLocation() - pawn->GetActorLocation();
 		//Divides each float of the line vector by the size of the vector to get a size of 1
 		FVector Line = FVector((LineAux.X / LineAux.Size()), (LineAux.Y / LineAux.Size()), (LineAux.Z / LineAux.Size()));
+		float Distance = Line.Size();
+		float MaxDistance = (PawnSensingComp->SightRadius / 2) / UKismetMathLibrary::Tan(FMath::DegreesToRadians(PawnSensingComp->GetPeripheralVisionAngle() / 2));
 
-		float Distance = LineAux.Size();
-		float MaxDistance = (PawnSensingComp->SightRadius / 2) / UKismetMathLibrary::Tan(FMath::DegreesToRadians(PawnSensingComp->GetPeripheralVisionAngle()));
-		float Angle = FVector::DotProduct(GetActorForwardVector(), Line);
-
-		if (Distance <= MaxDistance &&
-				Angle < - (1.f - PawnSensingComp->GetPeripheralVisionAngle() / 90.f)) {
+		float Angle = FMath::Abs(FVector::DotProduct(GetActorForwardVector(), Line));
+		GEngine->AddOnScreenDebugMessage(-1, .5f, FColor::Red, FString::Printf(TEXT("%f"), Angle));
+		if (Distance < MaxDistance &&
+				Angle > (1.f - PawnSensingComp->GetPeripheralVisionAngle() / 90.f)) {
 			return true;
 		}
 		return false;
@@ -342,9 +341,6 @@ float AMyAICharacter::TakeDamage(float DamageAmount, FDamageEvent const & Damage
 			AIController->SetState(EAIState::AI_ChasingTarget);
 			AIController->SetSlowSpeed(false);
 			bHeldUp = false;
-			if (PlayerFoundSound) {
-				ReportNoise(PlayerFoundSound, 1.f);
-			}
 		}
 	}
 	if (ActualDamage > 0.f) {
@@ -362,10 +358,6 @@ float AMyAICharacter::TakeDamage(float DamageAmount, FDamageEvent const & Damage
 			Health = 0.f;
 			if (Weapon) {
 				Weapon->Destroy();
-			}
-			APlayerHUD* HUD = Cast<APlayerHUD>(UGameplayStatics::GetPlayerController(GetWorld(), 0)->GetHUD());
-			if (HUD) {
-				HUD->RemoveFromRadar(this);
 			}
 			Destroy();
 			return (DamageAmount - Health);

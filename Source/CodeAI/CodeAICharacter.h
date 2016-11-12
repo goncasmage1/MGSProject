@@ -275,8 +275,6 @@ public:
 	//Returns the player's health
 	UFUNCTION(BlueprintCallable, Category = Health)
 		FORCEINLINE float GetHealth() const { return Health; }
-	UFUNCTION(BlueprintCallable, Category = Health)
-		FORCEINLINE bool FullHealth() const { return Health == MaxHealth; }
 	//Returns the player's damage
 	FORCEINLINE float GetDamage() const { return Damage; }
 	//Returns the player's inventory
