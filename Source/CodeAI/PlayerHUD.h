@@ -19,6 +19,9 @@ class CODEAI_API APlayerHUD : public AHUD
 
 public:
 
+	UPROPERTY(EditDefaultsOnly)
+		UTexture2D* EnemySight;
+
 	UPROPERTY(BlueprintReadWrite)
 		FVector2D ScreenSize;
 	UPROPERTY(BlueprintReadWrite)

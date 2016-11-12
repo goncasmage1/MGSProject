@@ -63,20 +63,38 @@ void APlayerHUD::DrawBorder()
 void APlayerHUD::DrawEnemies()
 {
 	for (AActor* Actor : EnemiesArray) {
-		float x, y;
-		//Math to draw the actor's location
-		x = -GetRadarDotPosition(Actor->GetActorLocation()).X;
-		y = GetRadarDotPosition(Actor->GetActorLocation()).Y;
+		if (Actor->IsValidLowLevel() && !Actor->IsPendingKillPending()) {
+			float x, y;
+			//Math to draw the actor's location
+			x = -GetRadarDotPosition(Actor->GetActorLocation()).X;
+			y = GetRadarDotPosition(Actor->GetActorLocation()).Y;
 
-		//If the enemy is outside the radar, don't draw it
-		if (x < -RadarSize || x > RadarSize || y < -RadarSize || y > RadarSize) {
-
-		}
-		else {
-			DrawRect(FColor::Black,
-				y + GetRadarCenterPosition().X,
-				x + GetRadarCenterPosition().Y,
-				5.f, 5.f);
+			//If the enemy is outside the radar, don't draw it
+			if (!(x < -RadarSize || x > RadarSize || y < -RadarSize || y > RadarSize)) {
+				DrawRect(FColor::Black,
+					y + GetRadarCenterPosition().X,
+					x + GetRadarCenterPosition().Y,
+					5.f, 5.f);
+				if (EnemySight) {
+					FLinearColor Color = FLinearColor::Blue;
+					Color.A = .3f;
+					DrawTexture(EnemySight,
+						y + GetRadarCenterPosition().X - (EnemySight->GetSizeX() / 2 - 2.5f),
+						x + GetRadarCenterPosition().Y - (EnemySight->GetSizeY() / 2 - 2.5f),
+						EnemySight->GetSizeX(),
+						EnemySight->GetSizeY(),
+						EnemySight->GetSizeX(),
+						EnemySight->GetSizeY(),
+						1.f,
+						1.f,
+						Color,
+						EBlendMode::BLEND_Translucent,
+						1.f,
+						false,
+						Actor->GetActorRotation().Yaw,
+						FVector2D(0.5f, 0.5f));
+				}
+			}
 		}
 	}
 }
@@ -91,7 +109,7 @@ void APlayerHUD::ContinueDrawHUD(int32 SizeX, int32 SizeY)
 	ScreenSize.X = SizeX;
 	ScreenSize.Y = SizeY;
 
-	DrawCubes();
+	//DrawCubes();
 	DrawEnemies();
 	DrawRect(FColor::Blue, GetRadarCenterPosition().X, GetRadarCenterPosition().Y, 5.f, 5.f);
 	DrawBorder();

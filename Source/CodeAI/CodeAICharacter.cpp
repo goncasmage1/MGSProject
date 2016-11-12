@@ -337,7 +337,6 @@ void ACodeAICharacter::HideRightMenu()
 void ACodeAICharacter::ActionPressed()
 {
 	if (bLeftMenuOpen) {
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("%d"), EquippedIndex));
 		InventoryArray[EquippedIndex]->MenuUse();
 		AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
 		if (MyPC) {
