@@ -86,6 +86,7 @@ public:
 	void SetSlowSpeed(bool bSlow);
 	bool GetSlowSpeed();
 
+	
 	FORCEINLINE UBlackboardComponent* GetBlackboardComp() const { return BlackboardComp; }
 
 	FORCEINLINE TArray<class ABotTargetPoint*> GetAvailableTargetPoints() { return BotTargetPoints; }

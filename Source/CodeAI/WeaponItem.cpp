@@ -54,9 +54,15 @@ void AWeaponItem::DecrementAmmo()
 void AWeaponItem::Reload()
 {
 	if ((ClipSize - ClipAmount) != 0 && MagsAmount != 0) {
-		int ammo = ClipSize - ClipAmount;
-		ClipAmount += ammo;
-		MagsAmount -= ammo;
+		int Ammo = ClipSize - ClipAmount;
+		if (Ammo <= MagsAmount) {
+			ClipAmount += Ammo;
+			MagsAmount -= Ammo;
+		}
+		else {
+			ClipAmount += MagsAmount;
+			MagsAmount -= MagsAmount;
+		}
 	}
 }
 

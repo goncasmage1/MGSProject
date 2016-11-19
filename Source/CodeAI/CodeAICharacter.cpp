@@ -2,6 +2,7 @@
 
 #include "CodeAI.h"
 #include "CodeAICharacter.h"
+#include "MyAICharacter.h"
 #include "MGSCube.h"
 #include "MyPlayerController.h"
 #include "InventoryGameItem.h"
@@ -57,6 +58,12 @@ ACodeAICharacter::ACodeAICharacter()
 	RightCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("Right Camera"));
 	RightCamera->SetupAttachment(RightBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
 
+	DeathBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("Death Boom"));
+	DeathBoom->SetupAttachment(RootComponent);
+
+	DeathCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("Death Camera"));
+	DeathCamera->SetupAttachment(DeathBoom, USpringArmComponent::SocketName);
+
    // Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
    // are set in the derived blueprint asset named MyCharacter (to avoid direct content references in C++)
 
@@ -78,8 +85,10 @@ ACodeAICharacter::ACodeAICharacter()
 	bAllowNavigation = true;
 	bShouldAddItem = true;
 	bAllowMovement = true;
+	bIsDead = false;
 
 	EquippedIndex = ExtraIndex = 0;
+	PreviousIndex = -1;
 
 	WalkSpeedDecrease = 3.f;
 	CoverSpeedDecrease = 2.5f;
@@ -99,8 +108,6 @@ void ACodeAICharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
-	LeftCamera->Deactivate();
-	RightCamera->Deactivate();
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 
 	for (TActorIterator<AInventoryGameItem> ActorItr(GetWorld()); ActorItr; ++ActorItr)
@@ -262,6 +269,7 @@ void ACodeAICharacter::ShowLeftMenu()
 	if (InventoryOpen) {
 		UGameplayStatics::PlaySound2D(GetWorld(), InventoryOpen);
 	}
+	PreviousIndex = EquippedIndex;
 	AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
 	if (MyPC) {
 		MyPC->ToogleLeftMenu();
@@ -276,32 +284,31 @@ void ACodeAICharacter::HideLeftMenu()
 	AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
 	if (bLeftMenuOpen) {
 		bLeftMenuOpen = false;
-		//If no item was equipped, it is now
-		if (!bItemEquipped) {
-			UGameplayStatics::PlaySound2D(GetWorld(), ItemUnequip);
-			bItemEquipped = true;
-		}
 		if (MyPC) {
 			MyPC->ToogleLeftMenu();
 		}
 	}
 	else {
-		AWeaponItem* Weapon = Cast<AWeaponItem>(InventoryArray[EquippedIndex]);
-		if (Weapon) {
-			//If there wasn't an equipped item, equip it
-			if (bItemEquipped) {
-				if (ItemEquip) {
-					UGameplayStatics::PlaySound2D(GetWorld(), ItemEquip);
-				}
-				bItemEquipped = false;
+		if (bItemEquipped) {
+			bItemEquipped = false;
+			//Play sound
+			if (ItemEquip) {
+				UGameplayStatics::PlaySound2D(GetWorld(), ItemUnequip);
+			}
+			//Unequip the item if it is a weapon
+			AWeaponItem* Weapon = Cast<AWeaponItem>(InventoryArray[EquippedIndex]);
+			if (Weapon) {
 				Weapon->Unequip();
 			}
-			//If there was an equipped item, unequip it
-			else {
-				if (ItemUnequip) {
-					UGameplayStatics::PlaySound2D(GetWorld(), ItemUnequip);
-				}
-				bItemEquipped = true;
+		}
+		else {
+			bItemEquipped = true;
+			//Play sound
+			if (ItemUnequip) {
+				UGameplayStatics::PlaySound2D(GetWorld(), ItemEquip);
+			}
+			AWeaponItem* Weapon = Cast<AWeaponItem>(InventoryArray[EquippedIndex]);
+			if (Weapon) {
 				Weapon->Equip();
 			}
 		}
@@ -337,7 +344,6 @@ void ACodeAICharacter::HideRightMenu()
 void ACodeAICharacter::ActionPressed()
 {
 	if (bLeftMenuOpen) {
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("%d"), EquippedIndex));
 		InventoryArray[EquippedIndex]->MenuUse();
 		AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
 		if (MyPC) {
@@ -358,17 +364,21 @@ void ACodeAICharacter::ActionReleased()
 
 void ACodeAICharacter::UsePressed()
 {
-	InventoryArray[EquippedIndex]->UseItemPressed();
-	ToogleCharacterControls(false);
+	if (bItemEquipped) {
+		InventoryArray[EquippedIndex]->UseItemPressed();
+		ToogleCharacterControls(false);
+	}
 }
 
 void ACodeAICharacter::UseReleased()
 {
-	InventoryArray[EquippedIndex]->UseItemReleased();
-	ToogleCharacterControls(true);
-	AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
-	if (MyPC) {
-		MyPC->UpdateItem();
+	if (bItemEquipped) {
+		InventoryArray[EquippedIndex]->UseItemReleased();
+		ToogleCharacterControls(true);
+		AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
+		if (MyPC) {
+			MyPC->UpdateItem();
+		}
 	}
 }
 
@@ -519,10 +529,6 @@ void ACodeAICharacter::EquipWeapon(class AWeaponItem* WeaponItem)
 
 void ACodeAICharacter::SetEquippedIndex(int32 Index)
 {
-	int32 PreviousIndex = EquippedIndex;
-	Index = -Index;
-	EquippedIndex = Index >= 0 ? Index : (InventoryArray.Num() + Index);
-
 	//If the previously equipped item was a weapon, unequip it
 	AWeaponItem* PreviousWeapon = Cast<AWeaponItem>(InventoryArray[PreviousIndex]);
 	if (PreviousWeapon) {
@@ -537,6 +543,13 @@ void ACodeAICharacter::SetEquippedIndex(int32 Index)
 			bItemEquipped = true;
 		}
 	}
+
+	if (EquippedIndex == 0) {
+		UGameplayStatics::PlaySound2D(GetWorld(), ItemUnequip);
+	}
+	else {
+		UGameplayStatics::PlaySound2D(GetWorld(), ItemEquip);
+	}
 }
 
 void ACodeAICharacter::SetIndex(int32 Index)
@@ -544,11 +557,8 @@ void ACodeAICharacter::SetIndex(int32 Index)
 	if (Index >= 0 && Index < InventoryArray.Num()) {
 		EquippedIndex = Index;
 	}
-	else if (Index == -1) {
-		EquippedIndex = InventoryArray.Num() - 1;
-	}
-	else if (Index == InventoryArray.Num()) {
-		EquippedIndex = 0;
+	else if (Index >= InventoryArray.Num()) {
+		EquippedIndex = Index - InventoryArray.Num();
 	}
 }
 
@@ -571,16 +581,56 @@ float ACodeAICharacter::TakeDamage(float DamageAmount, FDamageEvent const & Dama
 			return DamageAmount;
 		}
 		else {
-			if (PlayerDead) {
-				ReportNoise(PlayerDead, 1.f, false);
-			}
+			OnDeath();			
 			Health = 0.f;
 			HUDHealth = 0.f;
-			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Literally dying rn!"));
-			return (DamageAmount - Health);
+			return (DamageAmount);
 		}
 	}
 	return 0.f;
+}
+
+void ACodeAICharacter::OnDeath()
+{
+	if (PlayerDead) {
+		ReportNoise(PlayerDead, 1.f, false);
+	}
+	bIsDead = true;
+	DisableInput(Cast<AMyPlayerController>(GetController()));
+	SwitchToDeathCamera();
+
+	if (bItemEquipped) {
+		//Unequip the item if it is a weapon
+		AWeaponItem* Weapon = Cast<AWeaponItem>(InventoryArray[EquippedIndex]);
+		if (Weapon) {
+			Weapon->CancelUse();
+		}
+	}
+
+	if (DeathAnimations.Num() > 0) {
+		int Random = FMath::RandRange(0, DeathAnimations.Num() - 1);
+		GetMesh()->PlayAnimation(DeathAnimations[Random], false);
+	}
+	if (AttackingEnemies.Num() > 0) {
+		for (AMyAICharacter* Enemy : AttackingEnemies) {
+			Enemy->PlayerKilled();
+		}
+	}
+}
+
+void ACodeAICharacter::SwitchToDeathCamera()
+{
+	if (LeftCamera->IsActive()) {
+		LeftCamera->Deactivate();
+	}
+	else if (RightCamera->IsActive()) {
+		RightCamera->Deactivate();
+	}
+	else if (FollowCamera->IsActive()) {
+		FollowCamera->Deactivate();
+	}
+	DeathBoom->AddWorldRotation(FRotator(FMath::RandRange(-20.f, 0.f), FMath::RandRange(0.f, 360.f), 0.f).Quaternion());
+	DeathCamera->Activate();
 }
 
 void ACodeAICharacter::AddHealth(float Regen)
@@ -593,6 +643,16 @@ void ACodeAICharacter::AddHealth(float Regen)
 		Health = MaxHealth;
 		HUDHealth = 1.f;
 	}
+}
+
+void ACodeAICharacter::AddEnemy(AMyAICharacter * NewEnemy)
+{
+	AttackingEnemies.AddUnique(NewEnemy);
+}
+
+void ACodeAICharacter::RemoveEnemy(AMyAICharacter * NewEnemy)
+{
+	AttackingEnemies.Remove(NewEnemy);
 }
 
 void ACodeAICharacter::ReportNoise(USoundBase* SoundToPlay, float Volume, bool bShouldBeLouder)

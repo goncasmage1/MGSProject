@@ -16,6 +16,7 @@ enum class EAIState : uint8
 	AI_ChasingSound 	UMETA(DisplayName = "ChasingSound"),
 	AI_Patrolling		UMETA(DisplayName = "Patrolling"),
 	AI_HeldUp			UMETA(DisplayName = "HeldUp"),
+	AI_Dead				UMETA(DisplayName = "Dead"),
 	AI_None				UMETA(DisplayName = "None")
 };
 
@@ -24,7 +25,12 @@ class CODEAI_API AMyAICharacter : public ACharacter
 {
 	GENERATED_BODY()
 
-	/*		HEARING		*/
+private:
+
+	/******************************************
+	*		COMPONENTS
+	******************************************/
+
 	//Sound the AI makes when it found a player
 	UPROPERTY(EditDefaultsOnly)
 		USoundBase* PlayerFoundSound;
@@ -41,16 +47,36 @@ class CODEAI_API AMyAICharacter : public ACharacter
 	UPROPERTY(EditDefaultsOnly)
 		USoundBase* HeldUpSound;
 	//The distance at which even a sound will make the AI know where the player is
+
+	UPROPERTY(EditDefaultsOnly)
+		TArray<UAnimationAsset*> DeathAnimations;
+
+
+	/******************************************
+	*		SENSING
+	******************************************/
+
 	UPROPERTY(EditAnywhere)
 		float MinHearingThresh;
-	/*		HEARING		*/
+	
+	//Indicates whether the player is in sight
+	uint8 bCanSeePlayer : 1;
+	//Indicates if a noise was heard
+	uint8 bHeardNoise : 1;
+	//Indicates that the player is visible, but in cover,
+	//hence he shouldn't be seen from a certain angle
+	uint8 bSightBlockedByCover : 1;
 
 	//Stores a reference to the pawn the AI is chasing
 	class ACodeAICharacter* ChasingPawn;
 	//Stores the index of the current target point to chase
 	uint8 TargetPointNum;
 
-	/*		HEALTH		*/
+	
+	/******************************************
+	*		HEALTH
+	******************************************/
+
 	float Health;
 	UPROPERTY(EditDefaultsOnly)
 		float MaxHealth;
@@ -63,51 +89,57 @@ class CODEAI_API AMyAICharacter : public ACharacter
 	//Extra time to add in between attacks
 	UPROPERTY(EditDefaultsOnly)
 		float MaxAttackRate;
+	FTimerHandle DeathHandle;
+	
+	//Indicates whether the bot is dead
+	uint8 bIsDead : 1;
+
+
+	/******************************************
+	*		BEHAVIOR
+	******************************************/
+
 	float Time;
 	float ExtraTime;
-	/*		HEALTH		*/
 
-	/*		BOOLEANS		*/
-	//Indicates whether the player is in sight
-	uint8 bCanSeePlayer : 1;
-	//Indicates if a noise was heard
-	uint8 bHeardNoise : 1;
 	//Indicates if the AI is being held up
 	uint8 bHeldUp : 1;
-	//Indicates that the player is visible, but in cover,
-	//hence he shouldn't be seen from a certain angle
-	uint8 bSightBlockedByCover : 1;
 	//Indicates whether the order to increment the
 	//target points by should be reversed
 	uint8 bReverseTargetPoints : 1;
 	//Indicates whether the AI is pointing a weapon
 	uint8 bIsAiming : 1;
+	//Indicates whether the player was killed
+	uint8 bPlayerDead : 1;
 	/*If set to true, the AI will go to the first
 	target point when it reached the last one, otherwise
 	it will rewing through the target points*/
 	UPROPERTY(EditDefaultsOnly)
 		bool bResetTargetPoints;
-	/*		BOOLEANS		*/
 
 public:
 
-	/*		CLASS FUNCTIONS		*/
 	AMyAICharacter();
 	virtual void BeginPlay() override;
 	virtual void Tick (float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* InputComponent) override;
-	/*		CLASS FUNCTIONS		*/
 
-	/*		COMPONENTS		*/
+	/******************************************
+	*		COMPONENTS
+	******************************************/
+
 	UPROPERTY(VisibleAnywhere, Category = "AI")
 		class UPawnSensingComponent* PawnSensingComp;
 	UPROPERTY(EditAnywhere, Category = "AI")
 		class UBehaviorTree* BehaviorTree;
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 		class UPawnNoiseEmitterComponent* PawnNoiseEmitterComp;
-	/*		COMPONENTS		*/
 
-	/*		SENSING COMPONENT'S FUNCTIONS		*/
+	
+	/******************************************
+	*		SENSING
+	******************************************/
+
 	UFUNCTION()
 		void OnSeePlayer(APawn* Pawn);
 	void PlayerSeen();
@@ -123,23 +155,35 @@ public:
 	/*Plays a sound and reports it to the game*/
 	void ReportNoise(USoundBase* SoundToPlay, float Volume);	
 	FORCEINLINE bool IsHeldUp() const { return bHeldUp; }
-	/*		SENSING COMPONENT'S FUNCTIONS		*/
 
-	/*		DAMAGE		*/
+
+	/******************************************
+	*		DAMAGE
+	******************************************/
+
+	void OnDeath();
+	void OnDestroy();
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const & DamageEvent, AController * EventInstigator, AActor * DamageCauser);
 	FORCEINLINE float GetDamage() const { return DealingDamage; }
-	/*		DAMAGE		*/
 
-	/*		TARGET POINTS		*/
+
+	/******************************************
+	*		BEHAVIOR
+	******************************************/
+
 	//Array of TargetPoints to iterate through
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Target Point", ExposeOnSpawn = true), Category = TargetPoints)
 		TArray<class ABotTargetPoint*> TargetPoints;
 	//Increments the index of the target points
 	void IncrementTargetNum();
+	void PlayerKilled();
 	FORCEINLINE uint8 GetTargetNum() const { return TargetPointNum; }
-	/*		TARGET POINTS		*/
 
-	/*		WEAPON		*/
+	
+	/******************************************
+	*		WEAPON
+	******************************************/
+
 	bool AddWeapon(class AWeaponItem* WeaponItem);
 	void AimWeapon();
 	void LowerWeapon();
@@ -152,6 +196,5 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = Weapon)
 		bool bIsRifleEquipped;
 	FORCEINLINE bool GetIsAiming() const { return bIsAiming; }
-	/*		WEAPON		*/
 	
 };
