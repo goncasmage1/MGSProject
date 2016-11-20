@@ -293,7 +293,8 @@ bool AMyAICharacter::CheckLineOfSightTo(APawn * pawn)
 	if (PawnSensingComp->HasLineOfSightTo(pawn)) {
 		FVector LineAux = GetActorLocation() - pawn->GetActorLocation();
 		//Divides each float of the line vector by the size of the vector to get a size of 1
-		FVector Line = FVector((LineAux.X / LineAux.Size()), (LineAux.Y / LineAux.Size()), (LineAux.Z / LineAux.Size()));
+		FVector Line = LineAux;
+		Line.Normalize();
 
 		float Distance = LineAux.Size();
 		float MaxDistance = (PawnSensingComp->SightRadius / 2) / UKismetMathLibrary::Tan(FMath::DegreesToRadians(PawnSensingComp->GetPeripheralVisionAngle()));

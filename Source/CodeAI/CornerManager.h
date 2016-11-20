@@ -11,8 +11,11 @@ struct FCornerStruct
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Target Point", ExposeOnSpawn = true), Category = TargetPoints)
-		TArray<AWallCorner*> SingleCorner;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Corners", ExposeOnSpawn = true), Category = Radar)
+		TArray<AWallCorner*> CornerArray;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Connect First to Last", ExposeOnSpawn = true), Category = Radar)
+		bool bConnectFirstToLast;
 };
 
 UCLASS()

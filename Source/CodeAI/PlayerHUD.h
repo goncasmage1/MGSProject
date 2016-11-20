@@ -21,15 +21,18 @@ public:
 
 	UPROPERTY(EditDefaultsOnly)
 		UTexture2D* EnemySight;
+	UPROPERTY(EditDefaultsOnly)
+		FLinearColor RadarBaseColor;
 
-	UPROPERTY(BlueprintReadWrite)
-		FVector2D ScreenSize;
 	UPROPERTY(BlueprintReadWrite)
 		FVector2D RadarStartLocation = FVector2D(.85f, .2f);
 	UPROPERTY(BlueprintReadWrite)
 		float ObjectDistance = 10.f;
 	UPROPERTY(BlueprintReadWrite)
 		float RadarSize = 75;
+
+	//Radar center position X and Y
+	float RCPX, RCPY;
 
 	void BeginPlay() override;
 
@@ -38,12 +41,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Minimap)
 		void RemoveFromRadar(AActor* Actor);
 	UFUNCTION(BlueprintCallable, Category = Minimap)
-		FVector2D GetRadarCenterPosition();
-	UFUNCTION(BlueprintCallable, Category = Minimap)
 		FVector2D GetRadarDotPosition(FVector Location);
+	UFUNCTION(BlueprintCallable, Category = Minimap)
+		void FitToRadar(float &x, float &y);
 
 	bool IsInRadar(float x, float y) const;
 
+	//Draws the base upon which the rest of the icons will be drawn
+	void DrawBase();
 	//Draws the minimap border
 	void DrawBorder();
 	//Draw the enemies and the enemy cones
