@@ -1,7 +1,6 @@
 TO DO:
 
-	- Change game items' colors
-	- Improve AI (alarm system, strafing)
 	- Add levels
-	- Finish radar (add wall lines and crop textures out of the minimap's range)
+	- First person camera
+	- Finish radar (crop textures out of the minimap's range)
 	- Death screen

@@ -31,6 +31,8 @@ private:
 	class USpringArmComponent* DeathBoom;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	class UCameraComponent* DeathCamera;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
+	class UCameraComponent* FPPCamera;
 
 	UPROPERTY(EditDefaultsOnly, Category = Sound)
 		USoundBase* MenuSound;
@@ -137,8 +139,6 @@ public:
 		FORCEINLINE float GetHealth() const { return Health; }
 	UFUNCTION(BlueprintCallable, Category = Health)
 		FORCEINLINE bool FullHealth() const { return Health == MaxHealth; }
-	//Returns the player's damage
-	FORCEINLINE float GetDamage() const { return Damage; }
 
 
 	/******************************************
@@ -167,7 +167,7 @@ public:
 		UPawnNoiseEmitterComponent* PawnNoiseEmitterComp;
 
 	UFUNCTION(BlueprintCallable, Category = Sound)
-		void ReportNoise(USoundBase* SoundToPlay, float Volume, bool bShouldBeLouder);
+		void ReportNoise(USoundBase* SoundToPlay, float Volume);
 
 
 private:
@@ -249,6 +249,8 @@ private:
 	uint8 bHeldDownMenu : 1;
 	//Determines whether the player can navigate through the inventory
 	uint8 bAllowNavigation : 1;
+	//Determines whether the player is using a First Person Camera
+	uint8 bUsingFPP : 1;
 
 	/******************************************
 	*		HEALTH
@@ -261,9 +263,6 @@ private:
 	//The player's max health
 	UPROPERTY(EditDefaultsOnly)
 		float MaxHealth;
-	//Amount of damage to apply to the enemy
-	UPROPERTY(EditDefaultsOnly)
-		float Damage;
 
 	//Determines whether the player is dead
 	uint8 bIsDead : 1;
@@ -288,14 +287,12 @@ protected:
 	******************************************/
 
 	virtual void SetupPlayerInputComponent(class UInputComponent* inputComponent) override;
-	/** Called for forwards/backward input */
-	void MoveForward(float Value);
-	/** Called for side to side input */
-	void MoveRight(float Value);
 	//Handles the player's input over the menu
 	void HandleMenuInput(float Value);
 	//Switches between firing a weapon and moving regurarly
 	void ToogleCharacterControls(bool bAllow);
+	//Handles the player's rotation when using an item
+	void HandlePlayerRotation();
 	//Called when the player presses the left menu button
 	void PressedLeftMenu();
 	//Called when the player holds the left menu button
@@ -320,6 +317,14 @@ protected:
 	void ReloadPressed();
 	//Called when the reload button is released
 	void ReloadReleased();
+	//Called when the First Person Perspective button is pressed
+	void FPPPressed();
+	//Called when the First Person Perspective button is released
+	void FPPReleased();
+	//Lowers the player's speed
+	void Walk();
+	//Resumes running by the player
+	void StopWalking();
 
 	/**
 	* Called via input to turn at a given rate.
@@ -334,10 +339,10 @@ protected:
 
 	void MouseTurnX(float Rate);
 	void MouseTurnY(float Rate);
-	//Lowers the player's speed
-	void Walk();
-	//Resumes running by the player
-	void StopWalking();
+	/** Called for forwards/backward input */
+	void MoveForward(float Value);
+	/** Called for side to side input */
+	void MoveRight(float Value);
 
 public:
 

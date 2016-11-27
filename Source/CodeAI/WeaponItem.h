@@ -18,33 +18,41 @@ protected:
 	UPROPERTY(VisibleAnywhere)
 		class UStaticMeshComponent* GunMesh;
 	//Sound of the weapon firing
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(EditAnywhere)
 		class USoundBase* GunShotSound;
 	//Sound of the weapon out of ammo when attempting to fire
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(EditAnywhere)
 		class USoundBase* OutOfAmmoSound;
 
 	AActor* Owner;
 
 	//Amount of ammo per clip
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 		int32 ClipSize;
 	//Maximum amount of total ammo
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 		int32 MaxAmmo;
 	//Current amount of ammo in the clip
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 		int32 ClipAmount;
 	//Current amount of extra ammo (outside the clip)
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 		int32 MagsAmount;
 	//Distance of effect for holding up enemies
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 		float HoldUpDistance;
+	//Damage applied by the weapon
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+		float Damage;
 
 	//Used to determine in which socket to attach the gun mesh to
-	UPROPERTY(EditDefaultsOnly)
-		bool bIsPistol;
+	UPROPERTY(EditAnywhere)
+		bool bIsRifle;
+	//Fire rate of the weapon if it's a rifle
+	UPROPERTY(EditAnywhere, meta = (EditCondition = "bIsRifle"))
+		float FireRate;
+	//Timer handle to handle the rifle firing
+	FTimerHandle FireRateHandle;
 
 	//Determines whether the weapon draws a 3D Line or not
 	uint8 bIsAimed : 1;
@@ -66,7 +74,7 @@ public:
 	FORCEINLINE bool HasAmmo() {return (ClipAmount + MagsAmount > 0);}
 	FORCEINLINE bool MagsAreFull() { return (ClipSize + MagsAmount) == MaxAmmo; }
 	FORCEINLINE bool AmmoIsFull() {	return (ClipAmount + MagsAmount) == MaxAmmo;}
-	FORCEINLINE bool IsPistol() {return bIsPistol;}
+	FORCEINLINE bool IsPistol() {return (!bIsRifle);}
 	FORCEINLINE bool ClipIsEmpty() {return ClipAmount == 0;}
 
 	void SetOwner(AActor* NewOwner) override;
@@ -79,8 +87,9 @@ public:
 
 	void AIEquip(class AMyAICharacter* AIChar);
 
-	void UseItemPressed() override;
-	void UseItemReleased() override;
+	void UseItemPressed(bool bShouldHoldUp) override;
+	void UseItemReleased(bool bShouldStop) override;
+	void RifleShoot();
 	UFUNCTION(BlueprintCallable, category = Weapon)
 		void CancelUse();
 

@@ -80,9 +80,6 @@ private:
 	float Health;
 	UPROPERTY(EditDefaultsOnly)
 		float MaxHealth;
-	//Damage to deal to the player each hit
-	UPROPERTY(EditDefaultsOnly)
-		float DealingDamage;
 	//Time between the moment when the AI attacks the player
 	UPROPERTY(EditDefaultsOnly)
 		float MinAttackRate;
@@ -164,7 +161,6 @@ public:
 	void OnDeath();
 	void OnDestroy();
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const & DamageEvent, AController * EventInstigator, AActor * DamageCauser);
-	FORCEINLINE float GetDamage() const { return DealingDamage; }
 
 
 	/******************************************
@@ -178,6 +174,7 @@ public:
 	void IncrementTargetNum();
 	void PlayerKilled();
 	FORCEINLINE uint8 GetTargetNum() const { return TargetPointNum; }
+	EAIState GetCurrentState() const;
 
 	
 	/******************************************

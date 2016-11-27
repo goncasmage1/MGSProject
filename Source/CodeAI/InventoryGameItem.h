@@ -31,8 +31,8 @@ public:
 	AInventoryGameItem();
 	virtual void BeginPlay() override;
 
-	virtual void UseItemPressed();
-	virtual void UseItemReleased();
+	virtual void UseItemPressed(bool bShouldHoldUp);
+	virtual void UseItemReleased(bool bShouldStop);
 	UFUNCTION(BlueprintImplementableEvent, Category = Item)
 		void MenuUse();
 

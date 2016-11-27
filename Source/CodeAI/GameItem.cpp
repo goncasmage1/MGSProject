@@ -28,6 +28,7 @@ AGameItem::AGameItem()
 	TextWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("Text Widget"));
 	TextWidget->SetWidgetSpace(EWidgetSpace::Screen);
 	TextWidget->SetVisibility(false);
+	TextWidget->SetupAttachment(SM_ItemPickup);
 
 	ItemName = "Game Item";
 
@@ -82,6 +83,7 @@ void AGameItem::OnOverlapBegin(UPrimitiveComponent * OverlappedComp, AActor * Ot
 			UGameplayStatics::PlaySoundAtLocation(GetWorld(), ItemFailedSound, GetActorLocation());
 		}
 	}
+	/*
 	else {
 		AMyAICharacter* AI = Cast<AMyAICharacter>(OtherActor);
 		if (AI) {
@@ -93,6 +95,7 @@ void AGameItem::OnOverlapBegin(UPrimitiveComponent * OverlappedComp, AActor * Ot
 			}
 		}
 	}
+	*/
 	GetWorld()->GetTimerManager().SetTimer(ItemNameHandle, this, &AGameItem::HideItemText, ItemTextExpiration, false);
 }
 

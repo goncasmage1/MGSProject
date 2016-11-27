@@ -33,6 +33,5 @@ protected:
 private:
 
 	class UPlayerUI* PlayerUIRef;
-	class URightMenuWidget* RightMenuRef;
 	
 };

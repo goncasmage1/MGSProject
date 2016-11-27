@@ -14,12 +14,12 @@ void AInventoryGameItem::BeginPlay()
 	Super::BeginPlay();
 }
 
-void AInventoryGameItem::UseItemPressed()
+void AInventoryGameItem::UseItemPressed(bool bShouldHoldUp)
 {
 
 }
 
-void AInventoryGameItem::UseItemReleased()
+void AInventoryGameItem::UseItemReleased(bool bShouldStop)
 {
 
 }

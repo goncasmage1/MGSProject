@@ -2,6 +2,7 @@
 
 #include "CodeAI.h"
 #include "PlayerHUD.h"
+#include "MyAICharacter.h"
 #include "CornerManager.h"
 #include "Kismet/KismetMathLibrary.h"
 
@@ -96,28 +97,70 @@ void APlayerHUD::DrawEnemies()
 
 			//If the enemy is outside the radar, don't draw it
 			if (IsInRadar(x, y)) {
-				DrawRect(FColor::Black,
+				DrawRect(FColor::Red,
 					y + RCPX,
 					x + RCPY,
 					5.f, 5.f);
 				if (EnemySight) {
 					FLinearColor Color = FLinearColor::Blue;
 					Color.A = .3f;
-					DrawTexture(EnemySight,
-						y + RCPX - ((EnemySight->GetSizeX() * .45f) / 2 - 2.5f),
-						x + RCPY - ((EnemySight->GetSizeY() * .45f) / 2 - 2.5f),
-						EnemySight->GetSizeX(),
-						EnemySight->GetSizeY(),
-						EnemySight->GetSizeX(),
-						EnemySight->GetSizeY(),
-						1.f,
-						1.f,
-						Color,
-						EBlendMode::BLEND_Translucent,
-						.45f,
-						false,
-						Actor->GetActorRotation().Yaw,
-						FVector2D(0.5f, 0.5f));
+
+					AMyAICharacter* AICharacter = Cast<AMyAICharacter>(Actor);
+					if (AICharacter) {
+						switch (AICharacter->GetCurrentState()) {
+							case EAIState::AI_Patrolling:
+								DrawTexture(EnemySight,
+									y + RCPX - ((EnemySight->GetSizeX() * .45f) / 2 - 2.5f),
+									x + RCPY - ((EnemySight->GetSizeY() * .45f) / 2 - 2.5f),
+									EnemySight->GetSizeX(),
+									EnemySight->GetSizeY(),
+									EnemySight->GetSizeX(),
+									EnemySight->GetSizeY(),
+									1.f,
+									1.f,
+									EnemyPatrolingColor,
+									EBlendMode::BLEND_Translucent,
+									.45f,
+									false,
+									Actor->GetActorRotation().Yaw,
+									FVector2D(0.5f, 0.5f));
+								break;
+							case EAIState::AI_AttackingTarget:
+								DrawTexture(EnemySight,
+									y + RCPX - ((EnemySight->GetSizeX() * .45f) / 2 - 2.5f),
+									x + RCPY - ((EnemySight->GetSizeY() * .45f) / 2 - 2.5f),
+									EnemySight->GetSizeX(),
+									EnemySight->GetSizeY(),
+									EnemySight->GetSizeX(),
+									EnemySight->GetSizeY(),
+									1.f,
+									1.f,
+									EnemyAttackingColor,
+									EBlendMode::BLEND_Translucent,
+									.45f,
+									false,
+									Actor->GetActorRotation().Yaw,
+									FVector2D(0.5f, 0.5f));
+								break;
+							default:
+								DrawTexture(EnemySight,
+									y + RCPX - ((EnemySight->GetSizeX() * .45f) / 2 - 2.5f),
+									x + RCPY - ((EnemySight->GetSizeY() * .45f) / 2 - 2.5f),
+									EnemySight->GetSizeX(),
+									EnemySight->GetSizeY(),
+									EnemySight->GetSizeX(),
+									EnemySight->GetSizeY(),
+									1.f,
+									1.f,
+									EnemyInspectingColor,
+									EBlendMode::BLEND_Translucent,
+									.45f,
+									false,
+									Actor->GetActorRotation().Yaw,
+									FVector2D(0.5f, 0.5f));
+								break;
+						}
+					}
 				}
 			}
 		}
@@ -157,6 +200,30 @@ void APlayerHUD::DrawCubes()
 							X2,	Y2,	FLinearColor::Green);
 				}
 			}
+			else {
+				if (x1 < -RadarSize && x2 > RadarSize || x1 > RadarSize && x2 < -RadarSize) {
+					if (y1 > -RadarSize && y1 < RadarSize) {
+						FitToRadar(x1, y1);
+						FitToRadar(x2, y2);
+						DrawLine(y1 + RCPX,
+								x1 + RCPY,
+								y2 + RCPX,
+								x2 + RCPY,
+								FLinearColor::Green);
+					}
+				}
+				else if (y1 < -RadarSize && y2 > RadarSize || y1 > RadarSize && y2 < -RadarSize) {
+					if (x1 > -RadarSize && x1 < RadarSize) {
+						FitToRadar(x1, y1);
+						FitToRadar(x2, y2);
+						DrawLine(y1 + RCPX,
+							x1 + RCPY,
+							y2 + RCPX,
+							x2 + RCPY,
+							FLinearColor::Green);
+					}
+				}
+			}
 			if (i == (Max - 1) && CornerSet.bConnectFirstToLast) {
 				float x3 = -GetRadarDotPosition(CornerSet.CornerArray[i]->GetActorLocation()).X;
 				float y3 = GetRadarDotPosition(CornerSet.CornerArray[i]->GetActorLocation()).Y;
@@ -182,6 +249,30 @@ void APlayerHUD::DrawCubes()
 						DrawLine(y3 + RCPX,
 							x3 + RCPY,
 							X4, Y4, FLinearColor::Green);
+					}
+				}
+				else {
+					if (x3 < -RadarSize && x4 > RadarSize || x3 > RadarSize && x4 < -RadarSize) {
+						if (y3 > -RadarSize && y3 < RadarSize) {
+							FitToRadar(x3, y3);
+							FitToRadar(x4, y4);
+							DrawLine(y3 + RCPX,
+								x3 + RCPY,
+								y2 + RCPX,
+								x4 + RCPY,
+								FLinearColor::Green);
+						}
+					}
+					else if (y3 < -RadarSize && y4 > RadarSize || y3 > RadarSize && y4 < -RadarSize) {
+						if (x3 > -RadarSize && x3 < RadarSize) {
+							FitToRadar(x3, y3);
+							FitToRadar(x4, y4);
+							DrawLine(y3 + RCPX,
+								x3 + RCPY,
+								y4 + RCPX,
+								x4 + RCPY,
+								FLinearColor::Green);
+						}
 					}
 				}
 			}

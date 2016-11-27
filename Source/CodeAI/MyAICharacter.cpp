@@ -29,12 +29,11 @@ AMyAICharacter::AMyAICharacter()
 
 	TargetPointNum = 0;
 
-	DealingDamage = 20.f;
 	MaxHealth = 100.f;
 	Health = 100.f;
 	MinAttackRate = 1.f;
 	MaxAttackRate = 1.5f;
-	ExtraTime = FMath::RandRange(MinAttackRate, MinAttackRate + MaxAttackRate);
+	ExtraTime = FMath::RandRange(MinAttackRate, MaxAttackRate);
 	Time = ExtraTime / 2;
 
 	bCanSeePlayer = false;
@@ -99,7 +98,6 @@ void AMyAICharacter::Tick(float DeltaTime)
 
 					AAnAIController* AIController = Cast<AAnAIController>(GetController());
 					if (AIController) {
-						GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, TEXT("No see"));
 						AIController->SetPlayerLocation(ChasingPawn->GetActorLocation());
 						AIController->SetState(EAIState::AI_ChasingTarget);
 						AIController->ClearSeenTarget();
@@ -108,7 +106,7 @@ void AMyAICharacter::Tick(float DeltaTime)
 						bCanSeePlayer = false;
 						bSightBlockedByCover = false;
 						Time = 0.f;
-						ExtraTime = FMath::RandRange(MinAttackRate, MinAttackRate + MaxAttackRate);
+						ExtraTime = FMath::RandRange(MinAttackRate, MaxAttackRate);
 					}
 				}
 			}
@@ -181,7 +179,6 @@ void AMyAICharacter::OnHearNoise(APawn * PawnInstigator, const FVector & Locatio
 			ACodeAICharacter* Player = Cast<ACodeAICharacter>(PawnInstigator);
 			//If the noise came from a friendly AI Character
 			if (AICharacter) {
-				GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, TEXT("I'll help"));
 				AIController->SetHelpBot(Cast<APawn>(AICharacter));
 				AIController->SetState(EAIState::AI_HelpingFriendly);
 				AIController->SetSlowSpeed(false);
@@ -191,13 +188,18 @@ void AMyAICharacter::OnHearNoise(APawn * PawnInstigator, const FVector & Locatio
 				FVector Len = GetActorLocation() - Location;
 				//If the player is too close for comfort
 				if (Len.Size() <= MinHearingThresh && !Player->InCover()) {
-					GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, TEXT("Too close buddy"));
 					DetectPlayer(AIController, PawnInstigator);
 				}
 				else {
+					FVector Distance = GetActorLocation() - Location;
 					AIController->SetHeardLocation(Location);
 					AIController->SetState(EAIState::AI_ChasingSound);
-					AIController->SetSlowSpeed(true);
+					if (Distance.Size() < 500.f || Volume < .5f) {
+						AIController->SetSlowSpeed(true);
+					}
+					else {
+						AIController->SetSlowSpeed(false);
+					}
 					//If there is a sound, play it
 					if (SoundHeardSound && !bHeardNoise) {
 						ReportNoise(SoundHeardSound, 1.f);
@@ -212,7 +214,6 @@ void AMyAICharacter::OnHearNoise(APawn * PawnInstigator, const FVector & Locatio
 void AMyAICharacter::DetectPlayer(class AAnAIController* AICon, APawn * Pawn)
 {
 	if (AICon->GetState() != EAIState::AI_HeldUp) {
-		GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, TEXT("I see you"));
 		//If there is a sound and the AI isn't already chasing the player, play it
 		if (PlayerFoundSound && AICon->GetState() != EAIState::AI_ChasingTarget) {
 			ReportNoise(PlayerFoundSound, 1.f);
@@ -237,7 +238,7 @@ void AMyAICharacter::ReportNoise(USoundBase * SoundToPlay, float Volume)
 	if (SoundToPlay)
 	{
 		//Play the actual sound
-		UGameplayStatics::PlaySoundAtLocation(GetWorld(), SoundToPlay, GetActorLocation(), Volume);
+		UGameplayStatics::PlaySoundAtLocation(GetWorld(), SoundToPlay, GetActorLocation(), 1.f);
 
 		//Report that we've played a sound with a certain volume in a specific location
 		PawnNoiseEmitterComp->MakeNoise(this, Volume, GetActorLocation());
@@ -253,7 +254,7 @@ void AMyAICharacter::AimWeapon()
 {
 	if (Weapon) {
 		bIsAiming = true;
-		Weapon->UseItemPressed();
+		Weapon->UseItemPressed(false);
 	}
 }
 
@@ -268,7 +269,7 @@ void AMyAICharacter::LowerWeapon()
 void AMyAICharacter::ShootWeapon()
 {
 	if (Weapon) {
-		Weapon->UseItemReleased();
+		Weapon->UseItemReleased(true);
 	}
 }
 
@@ -343,8 +344,20 @@ void AMyAICharacter::PlayerKilled()
 	if (AIController) {
 		AIController->SetState(EAIState::AI_Patrolling);
 		AIController->ClearSeenTarget();
+		AIController->SetSlowSpeed(true);
 		LowerWeapon();
 		bPlayerDead = true;
+	}
+}
+
+EAIState AMyAICharacter::GetCurrentState() const
+{
+	AAnAIController* AIController = Cast<AAnAIController>(GetController());
+	if (AIController) {
+		return AIController->GetState();
+	}
+	else {
+		return EAIState();
 	}
 }
 
@@ -392,10 +405,10 @@ void AMyAICharacter::OnDestroy()
 float AMyAICharacter::TakeDamage(float DamageAmount, FDamageEvent const & DamageEvent, AController * EventInstigator, AActor * DamageCauser)
 {
 	const float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
-	if (!bCanSeePlayer) {
+	AAnAIController* AIController = Cast<AAnAIController>(GetController());
+	if (!bCanSeePlayer && AIController && AIController->GetState() == EAIState::AI_Patrolling) {
 		AMyPlayerController* PC = Cast<AMyPlayerController>(EventInstigator);
-		AAnAIController* AIController = Cast<AAnAIController>(GetController());
-		if (PC && AIController) {
+		if (PC) {
 			AIController->SetPlayerLocation(PC->GetPawn()->GetActorLocation());
 			AIController->SetState(EAIState::AI_ChasingTarget);
 			AIController->SetSlowSpeed(false);

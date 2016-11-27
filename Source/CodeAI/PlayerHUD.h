@@ -22,6 +22,12 @@ public:
 	UPROPERTY(EditDefaultsOnly)
 		UTexture2D* EnemySight;
 	UPROPERTY(EditDefaultsOnly)
+		FLinearColor EnemyAttackingColor;
+	UPROPERTY(EditDefaultsOnly)
+		FLinearColor EnemyInspectingColor;
+	UPROPERTY(EditDefaultsOnly)
+		FLinearColor EnemyPatrolingColor;
+	UPROPERTY(EditDefaultsOnly)
 		FLinearColor RadarBaseColor;
 
 	UPROPERTY(BlueprintReadWrite)

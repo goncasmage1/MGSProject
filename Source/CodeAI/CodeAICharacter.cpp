@@ -64,6 +64,9 @@ ACodeAICharacter::ACodeAICharacter()
 	DeathCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("Death Camera"));
 	DeathCamera->SetupAttachment(DeathBoom, USpringArmComponent::SocketName);
 
+	FPPCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FPP Camera"));
+	FPPCamera->SetupAttachment(RootComponent);
+
    // Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
    // are set in the derived blueprint asset named MyCharacter (to avoid direct content references in C++)
 
@@ -83,6 +86,8 @@ ACodeAICharacter::ACodeAICharacter()
 	bHeldDownMenu = false;
 	bItemEquipped = false;
 	bAllowNavigation = true;
+	bUsingFPP = false;
+
 	bShouldAddItem = true;
 	bAllowMovement = true;
 	bIsDead = false;
@@ -101,7 +106,6 @@ ACodeAICharacter::ACodeAICharacter()
 	MaxHealth = 100.f;
 	Health = MaxHealth;
 	HUDHealth = 1.f;
-	Damage = 20.f;
 }
 
 void ACodeAICharacter::BeginPlay()
@@ -135,14 +139,23 @@ void ACodeAICharacter::Tick(float DeltaTime)
 		}
 	}
 	/*
-	if (!bAllowMovement) {
-		
-		FVector Player = GetActorLocation() + FVector(-YRate, XRate, 0.f);
-		FRotator Rot = GetActorRotation();
-		Rot.Yaw = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), Player).Yaw;
-		SetActorRotation(Rot);
+	if (!bAllowMovement && !bUsingFPP) {
+		HandlePlayerRotation();
 	}
 	*/
+}
+
+void ACodeAICharacter::HandlePlayerRotation()
+{
+	if (YRate != 0.f && XRate != 0.f) {
+		/*
+		FVector New = FVector(-YRate, XRate, 0.f);
+		FRotator Rot = GetActorRotation();
+		Rot.Yaw = New.Rotation().Yaw;
+		SetActorRotation(Rot);
+		*/
+		//AddControllerYawInput();
+	}
 }
 
 void ACodeAICharacter::HandleCoverLogic()
@@ -352,7 +365,7 @@ void ACodeAICharacter::ActionPressed()
 	}
 	else if (bIsInCover) {
 		if (KnockingSound) {
-			ReportNoise(KnockingSound, 1.f, true);
+			ReportNoise(KnockingSound, 1.5f);
 		}
 	}
 }
@@ -365,19 +378,23 @@ void ACodeAICharacter::ActionReleased()
 void ACodeAICharacter::UsePressed()
 {
 	if (bItemEquipped) {
-		InventoryArray[EquippedIndex]->UseItemPressed();
+		InventoryArray[EquippedIndex]->UseItemPressed(true);
 		ToogleCharacterControls(false);
 	}
 }
 
 void ACodeAICharacter::UseReleased()
 {
-	if (bItemEquipped) {
-		InventoryArray[EquippedIndex]->UseItemReleased();
-		ToogleCharacterControls(true);
-		AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
-		if (MyPC) {
-			MyPC->UpdateItem();
+	if ((bItemEquipped || !bAllowMovement)) {
+		if (!bAllowMovement) {
+			InventoryArray[EquippedIndex]->UseItemReleased(true);
+			AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
+			if (MyPC) {
+				MyPC->UpdateItem();
+			}
+		}
+		if (!bUsingFPP) {
+			ToogleCharacterControls(true);
 		}
 	}
 }
@@ -397,6 +414,30 @@ void ACodeAICharacter::ReloadPressed()
 void ACodeAICharacter::ReloadReleased()
 {
 
+}
+
+void ACodeAICharacter::FPPPressed()
+{
+	bUsingFPP = true;
+	if (FollowCamera->IsActive()) {
+		FollowCamera->Deactivate();
+	}
+	else if (LeftCamera->IsActive()) {
+		LeftCamera->Deactivate();
+	}
+	else if (RightCamera->IsActive()) {
+		RightCamera->Deactivate();
+	}
+	FPPCamera->Activate();
+	ToogleCharacterControls(false);
+}
+
+void ACodeAICharacter::FPPReleased()
+{
+	bUsingFPP = false;
+	FPPCamera->Deactivate();
+	FollowCamera->Activate();
+	ToogleCharacterControls(true);
 }
 
 bool ACodeAICharacter::AddItem(AGameItem * Item)
@@ -427,7 +468,6 @@ bool ACodeAICharacter::AddItem(AGameItem * Item)
 	if (InventoryItem) {
 		return AddNewItem(InventoryItem);
 	}
-	
 	return false;
 }
 
@@ -570,10 +610,10 @@ float ACodeAICharacter::TakeDamage(float DamageAmount, FDamageEvent const & Dama
 			if (PlayerHurt_1 && PlayerHurt_2) {
 				int i = FMath::RandRange(0, 1);
 				if (i) {
-					ReportNoise(PlayerHurt_1, 1.f, false);
+					UGameplayStatics::PlaySound2D(GetWorld(), PlayerHurt_1);
 				}
 				else {
-					ReportNoise(PlayerHurt_2, 1.f, false);
+					UGameplayStatics::PlaySound2D(GetWorld(), PlayerHurt_2);
 				}
 			}
 			Health -= DamageAmount;
@@ -593,7 +633,7 @@ float ACodeAICharacter::TakeDamage(float DamageAmount, FDamageEvent const & Dama
 void ACodeAICharacter::OnDeath()
 {
 	if (PlayerDead) {
-		ReportNoise(PlayerDead, 1.f, false);
+		UGameplayStatics::PlaySound2D(GetWorld(), PlayerDead);
 	}
 	bIsDead = true;
 	DisableInput(Cast<AMyPlayerController>(GetController()));
@@ -629,7 +669,7 @@ void ACodeAICharacter::SwitchToDeathCamera()
 	else if (FollowCamera->IsActive()) {
 		FollowCamera->Deactivate();
 	}
-	DeathBoom->AddWorldRotation(FRotator(FMath::RandRange(-20.f, 0.f), FMath::RandRange(0.f, 360.f), 0.f).Quaternion());
+	DeathBoom->AddWorldRotation(FRotator(FMath::RandRange(-30.f, 0.f), FMath::RandRange(0.f, 360.f), 0.f).Quaternion());
 	DeathCamera->Activate();
 }
 
@@ -655,16 +695,15 @@ void ACodeAICharacter::RemoveEnemy(AMyAICharacter * NewEnemy)
 	AttackingEnemies.Remove(NewEnemy);
 }
 
-void ACodeAICharacter::ReportNoise(USoundBase* SoundToPlay, float Volume, bool bShouldBeLouder)
+void ACodeAICharacter::ReportNoise(USoundBase* SoundToPlay, float Volume)
 {
 	//If we have a valid sound to play, play the sound and
 	//report it to our game
 	if (SoundToPlay)
 	{
 		//Play the actual sound
-		UGameplayStatics::PlaySoundAtLocation(GetWorld(), SoundToPlay, GetActorLocation(), Volume);
+		UGameplayStatics::PlaySoundAtLocation(GetWorld(), SoundToPlay, GetActorLocation(), 1.f);
 
-		Volume = bShouldBeLouder ? Volume * 1.5f : Volume;
 		PawnNoiseEmitterComp->MakeNoise(this, Volume, GetActorLocation());
 	}
 
@@ -747,6 +786,9 @@ void ACodeAICharacter::SetupPlayerInputComponent(class UInputComponent* inputCom
 	inputComponent->BindAction("Reload", IE_Pressed, this, &ACodeAICharacter::ReloadPressed);
 	inputComponent->BindAction("Reload", IE_Released, this, &ACodeAICharacter::ReloadReleased);
 
+	inputComponent->BindAction("FPP", IE_Pressed, this, &ACodeAICharacter::FPPPressed);
+	inputComponent->BindAction("FPP", IE_Released, this, &ACodeAICharacter::FPPReleased);
+
 	inputComponent->BindAxis("MoveForward", this, &ACodeAICharacter::MoveForward);
 	inputComponent->BindAxis("MoveRight", this, &ACodeAICharacter::MoveRight).bExecuteWhenPaused = true;
 
@@ -755,7 +797,7 @@ void ACodeAICharacter::SetupPlayerInputComponent(class UInputComponent* inputCom
 	// "turnrate" is for devices that we choose to treat as a rate of change, such as an analog joystick
 	
 	
-	inputComponent->BindAxis("Turn", this, &APawn::AddControllerYawInput);
+	inputComponent->BindAxis("Turn", this, &ACodeAICharacter::AddControllerYawInput);
 	//inputComponent->BindAxis("TurnRate", this, &ACodeAICharacter::TurnAtRate);
 	inputComponent->BindAxis("LookUp", this, &ACodeAICharacter::MouseTurnY);
 	//inputComponent->BindAxis("LookUpRate", this, &ACodeAICharacter::LookUpAtRate);
@@ -926,9 +968,12 @@ void ACodeAICharacter::ToogleCharacterControls(bool bAllow)
 
 	if (bAllowMovement) {
 		bUseControllerRotationYaw = false;
+		GetCharacterMovement()->bOrientRotationToMovement = true;
 	}
 	else {
-		GetController()->SetControlRotation(GetActorForwardVector().Rotation());
+		GetCharacterMovement()->bOrientRotationToMovement = false;
 		bUseControllerRotationYaw = true;
+		Controller->SetControlRotation(GetActorRotation());
 	}
 }
+
