@@ -11,15 +11,19 @@ EBTNodeResult::Type UChangePlayerSpeed::ExecuteTask(UBehaviorTreeComponent & Own
 	AAnAIController* AICon = Cast<AAnAIController>(OwnerComp.GetAIOwner());
 
 	if (AICon) {
-		if (!AICon->GetSlowSpeed()) {
-			AMyAICharacter * MyAI = Cast<AMyAICharacter>(AICon->GetCharacter());
-			MyAI->GetCharacterMovement()->MaxWalkSpeed = DefaultSpeed;
+		AMyAICharacter * MyAI = Cast<AMyAICharacter>(AICon->GetCharacter());
+		if (MyAI) {
+			if (!AICon->GetSlowSpeed()) {
+				MyAI->GetCharacterMovement()->MaxWalkSpeed = DefaultSpeed;
+				MyAI->SetRunning(true);
+			}
+			else {
+				MyAI->GetCharacterMovement()->MaxWalkSpeed = PatrolSpeed;
+				MyAI->SetRunning(false);
+			}
+			return EBTNodeResult::Succeeded;
 		}
-		else {
-			AMyAICharacter * MyAI = Cast<AMyAICharacter>(AICon->GetCharacter());
-			MyAI->GetCharacterMovement()->MaxWalkSpeed = PatrolSpeed;
-		}
-		return EBTNodeResult::Succeeded;
+		return EBTNodeResult::Failed;
 	}
 	return EBTNodeResult::Failed;
 }

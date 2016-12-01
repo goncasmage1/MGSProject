@@ -106,6 +106,8 @@ private:
 	uint8 bReverseTargetPoints : 1;
 	//Indicates whether the AI is pointing a weapon
 	uint8 bIsAiming : 1;
+	//Indicates whether the AI is running
+	uint8 bIsRunning : 1;
 	//Indicates whether the player was killed
 	uint8 bPlayerDead : 1;
 	/*If set to true, the AI will go to the first
@@ -152,6 +154,7 @@ public:
 	/*Plays a sound and reports it to the game*/
 	void ReportNoise(USoundBase* SoundToPlay, float Volume);	
 	FORCEINLINE bool IsHeldUp() const { return bHeldUp; }
+	FORCEINLINE bool IsDead() const { return bIsDead; }
 
 
 	/******************************************
@@ -173,8 +176,12 @@ public:
 	//Increments the index of the target points
 	void IncrementTargetNum();
 	void PlayerKilled();
+	void RunToHeardSound(FVector Loc);
 	FORCEINLINE uint8 GetTargetNum() const { return TargetPointNum; }
 	EAIState GetCurrentState() const;
+	void SetRunning(bool IsRunning);
+	UFUNCTION(BlueprintCallable, Category = Movement)
+		FORCEINLINE bool GetIsRunning() const { return bIsRunning; }
 
 	
 	/******************************************

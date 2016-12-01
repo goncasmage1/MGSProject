@@ -1,6 +1,8 @@
 TO DO:
 
-	- Add levels
-	- First person camera
+	- Add first MGS level
 	- Finish radar (crop textures out of the minimap's range)
+	- Crouching mechanic
+	- Staggering mechanic
+	- Intro cutscene
 	- Death screen

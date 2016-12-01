@@ -20,6 +20,9 @@ protected:
 	//Sound of the weapon firing
 	UPROPERTY(EditAnywhere)
 		class USoundBase* GunShotSound;
+	//Sound of the weapon firing while silenced
+	UPROPERTY(EditAnywhere)
+		class USoundBase* GunShotSoundSilenced;
 	//Sound of the weapon out of ammo when attempting to fire
 	UPROPERTY(EditAnywhere)
 		class USoundBase* OutOfAmmoSound;
@@ -44,7 +47,10 @@ protected:
 	//Damage applied by the weapon
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 		float Damage;
-
+	
+	//Used to determine whether this weapon will make any noise when firing
+	UPROPERTY(EditAnywhere)
+		bool bIsSilenced;
 	//Used to determine in which socket to attach the gun mesh to
 	UPROPERTY(EditAnywhere)
 		bool bIsRifle;

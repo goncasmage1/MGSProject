@@ -20,6 +20,8 @@ AWeaponItem::AWeaponItem()
 
 	bIsAimed = false;
 	bCancelled = false;
+
+	bIsSilenced = false;
 }
 
 void AWeaponItem::Tick(float DeltaSeconds)
@@ -129,15 +131,19 @@ void AWeaponItem::UseItemReleased(bool bShouldStop)
 				FHitResult Hit;
 				FCollisionQueryParams QParams;
 				QParams.AddIgnoredActor(this);
-				if (GunShotSound) {
-					Char->ReportNoise(GunShotSound, 3.f);
+				if (!bIsSilenced) {
+					if (GunShotSound) {
+						Char->ReportNoise(GunShotSound, 4.f);
+					}
+				}
+				else if (GunShotSoundSilenced) {
+					UGameplayStatics::PlaySound2D(GetWorld(), GunShotSoundSilenced);
 				}
 
 				if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECollisionChannel::ECC_Pawn)) {
 					FPointDamageEvent DamageEvent;
 					AMyAICharacter* AI = Cast<AMyAICharacter>(Hit.GetActor());
 					if (AI) {
-						GEngine->AddOnScreenDebugMessage(-1, .5f, FColor::Green, TEXT("Damaged"));
 						AI->TakeDamage(Damage, DamageEvent, Char->GetController(), this);
 					}
 				}
@@ -149,8 +155,13 @@ void AWeaponItem::UseItemReleased(bool bShouldStop)
 					FVector Bot = AI->GetActorForwardVector();
 					FVector End = Start + FVector(Bot.X, Bot.Y, 0.f)* 1000.f;
 					FHitResult Hit;
-					if (GunShotSound) {
-						AI->ReportNoise(GunShotSound, 3.f);
+					if (!bIsSilenced) {
+						if (GunShotSound) {
+							AI->ReportNoise(GunShotSound, 4.f);
+						}
+					}
+					else if (GunShotSoundSilenced) {
+						UGameplayStatics::PlaySound2D(GetWorld(), GunShotSoundSilenced);
 					}
 
 					if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECollisionChannel::ECC_Pawn)) {

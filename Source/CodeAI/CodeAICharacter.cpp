@@ -90,6 +90,9 @@ ACodeAICharacter::ACodeAICharacter()
 
 	bShouldAddItem = true;
 	bAllowMovement = true;
+	bIsCrouching = false;
+	bIsProne = false;
+	bIsStaggering = false;
 	bIsDead = false;
 
 	EquippedIndex = ExtraIndex = 0;
@@ -120,6 +123,10 @@ void ACodeAICharacter::BeginPlay()
 		if (ActorItr->GetItemName() == FName("None")) {
 			InventoryArray.Add(*ActorItr);
 		}
+	}
+	for (TActorIterator<AMyAICharacter> ActorItr(GetWorld()); ActorItr; ++ActorItr)
+	{
+		AllEnemies.Add(*ActorItr);
 	}
 }
 
@@ -273,7 +280,9 @@ void ACodeAICharacter::HandleRightCover()
 
 void ACodeAICharacter::PressedLeftMenu()
 {
-	bLeftMenuPressed = true;
+	if (!bIsDead) {
+		bLeftMenuPressed = true;
+	}
 }
 
 void ACodeAICharacter::ShowLeftMenu()
@@ -333,7 +342,9 @@ void ACodeAICharacter::HideLeftMenu()
 
 void ACodeAICharacter::PressedRightMenu()
 {
+	if (!bIsDead) {
 
+	}
 }
 
 void ACodeAICharacter::ShowRightMenu()
@@ -438,6 +449,54 @@ void ACodeAICharacter::FPPReleased()
 	FPPCamera->Deactivate();
 	FollowCamera->Activate();
 	ToogleCharacterControls(true);
+}
+
+void ACodeAICharacter::CrouchPressed()
+{
+	bIsCrouching = true;
+}
+
+void ACodeAICharacter::CrouchReleased()
+{
+	bIsCrouching = false;
+}
+
+void ACodeAICharacter::PrepareProne()
+{
+	if (bItemEquipped) {
+		//Unequip the item if it is a weapon
+		AWeaponItem* Weapon = Cast<AWeaponItem>(InventoryArray[EquippedIndex]);
+		if (Weapon) {
+			Weapon->CancelUse();
+		}
+	}
+}
+
+void ACodeAICharacter::FinishProne()
+{
+	bIsProne = true;
+}
+
+void ACodeAICharacter::HandleStagger()
+{
+	if (bItemEquipped) {
+		//Unequip the item if it is a weapon
+		AWeaponItem* Weapon = Cast<AWeaponItem>(InventoryArray[EquippedIndex]);
+		if (Weapon) {
+			Weapon->CancelUse();
+		}
+	}
+	bAllowMovement = false;
+	if (StaggerAnimations.Num() > 0) {
+		int Random = FMath::RandRange(0, StaggerAnimations.Num() - 1);
+		//GetMesh()->PlayAnimation(StaggerAnimations[Random], false);
+		//float Len = StaggerAnimations[Random];
+	}
+}
+
+void ACodeAICharacter::FinishStagger()
+{
+
 }
 
 bool ACodeAICharacter::AddItem(AGameItem * Item)
@@ -569,26 +628,28 @@ void ACodeAICharacter::EquipWeapon(class AWeaponItem* WeaponItem)
 
 void ACodeAICharacter::SetEquippedIndex(int32 Index)
 {
-	//If the previously equipped item was a weapon, unequip it
-	AWeaponItem* PreviousWeapon = Cast<AWeaponItem>(InventoryArray[PreviousIndex]);
-	if (PreviousWeapon) {
-		PreviousWeapon->Unequip();
-	}
-
-	//If the newly equipped item is a weapon, equip it
-	AWeaponItem* NewWeapon = Cast<AWeaponItem>(InventoryArray[EquippedIndex]);
-	if (NewWeapon) {
-		NewWeapon->Equip();
-		if (!bItemEquipped) {
-			bItemEquipped = true;
+	if (PreviousIndex != Index) {
+		//If the previously equipped item was a weapon, unequip it
+		AWeaponItem* PreviousWeapon = Cast<AWeaponItem>(InventoryArray[PreviousIndex]);
+		if (PreviousWeapon) {
+			PreviousWeapon->Unequip();
 		}
-	}
 
-	if (EquippedIndex == 0) {
-		UGameplayStatics::PlaySound2D(GetWorld(), ItemUnequip);
-	}
-	else {
-		UGameplayStatics::PlaySound2D(GetWorld(), ItemEquip);
+		//If the newly equipped item is a weapon, equip it
+		AWeaponItem* NewWeapon = Cast<AWeaponItem>(InventoryArray[Index]);
+		if (NewWeapon) {
+			NewWeapon->Equip();
+		}
+
+		if (Index == 0) {
+			UGameplayStatics::PlaySound2D(GetWorld(), ItemUnequip);
+		}
+		else {
+			UGameplayStatics::PlaySound2D(GetWorld(), ItemEquip);
+			if (!bItemEquipped) {
+				bItemEquipped = true;
+			}
+		}
 	}
 }
 
@@ -598,7 +659,10 @@ void ACodeAICharacter::SetIndex(int32 Index)
 		EquippedIndex = Index;
 	}
 	else if (Index >= InventoryArray.Num()) {
-		EquippedIndex = Index - InventoryArray.Num();
+		EquippedIndex = 0;
+	}
+	else {
+		EquippedIndex = InventoryArray.Num() - 1;
 	}
 }
 
@@ -618,6 +682,7 @@ float ACodeAICharacter::TakeDamage(float DamageAmount, FDamageEvent const & Dama
 			}
 			Health -= DamageAmount;
 			HUDHealth = Health / MaxHealth;
+			//HandleStagger();
 			return DamageAmount;
 		}
 		else {
@@ -653,7 +718,9 @@ void ACodeAICharacter::OnDeath()
 	}
 	if (AttackingEnemies.Num() > 0) {
 		for (AMyAICharacter* Enemy : AttackingEnemies) {
-			Enemy->PlayerKilled();
+			if (!Enemy->IsDead()) {
+				Enemy->PlayerKilled();
+			}
 		}
 	}
 }
@@ -704,7 +771,12 @@ void ACodeAICharacter::ReportNoise(USoundBase* SoundToPlay, float Volume)
 		//Play the actual sound
 		UGameplayStatics::PlaySoundAtLocation(GetWorld(), SoundToPlay, GetActorLocation(), 1.f);
 
-		PawnNoiseEmitterComp->MakeNoise(this, Volume, GetActorLocation());
+		if (Volume < 4.f) {
+			PawnNoiseEmitterComp->MakeNoise(this, Volume, GetActorLocation());
+		}
+		else {
+			NotifyLoudNoise(GetActorLocation());
+		}
 	}
 
 }
@@ -765,6 +837,10 @@ void ACodeAICharacter::SetupPlayerInputComponent(class UInputComponent* inputCom
 {
 	// Set up gameplay key bindings
 	check(inputComponent);
+
+	inputComponent->BindAxis("MoveForward", this, &ACodeAICharacter::MoveForward);
+	inputComponent->BindAxis("MoveRight", this, &ACodeAICharacter::MoveRight).bExecuteWhenPaused = true;
+
 	inputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
 	inputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
 
@@ -789,8 +865,8 @@ void ACodeAICharacter::SetupPlayerInputComponent(class UInputComponent* inputCom
 	inputComponent->BindAction("FPP", IE_Pressed, this, &ACodeAICharacter::FPPPressed);
 	inputComponent->BindAction("FPP", IE_Released, this, &ACodeAICharacter::FPPReleased);
 
-	inputComponent->BindAxis("MoveForward", this, &ACodeAICharacter::MoveForward);
-	inputComponent->BindAxis("MoveRight", this, &ACodeAICharacter::MoveRight).bExecuteWhenPaused = true;
+	//inputComponent->BindAction("Crouch", IE_Pressed, this, &ACodeAICharacter::FPPPressed);
+	//inputComponent->BindAction("Crouch", IE_Released, this, &ACodeAICharacter::FPPReleased);
 
 	// We have 2 versions of the rotation bindings to handle different kinds of devices differently
 	// "turn" handles devices that provide an absolute delta, such as a mouse.
@@ -817,6 +893,17 @@ void ACodeAICharacter::StopWalking()
 	bIsWalking = false;
 
 	GetCharacterMovement()->MaxWalkSpeed *= WalkSpeedDecrease;
+}
+
+void ACodeAICharacter::NotifyLoudNoise(FVector Loc)
+{
+	if (AllEnemies.Num() > 0) {
+		for (AMyAICharacter* Enemy : AllEnemies) {
+			if (!Enemy->IsDead()) {
+				Enemy->RunToHeardSound(Loc);
+			}
+		}
+	}
 }
 
 bool ACodeAICharacter::InCoverLeftLineTrace(bool bToTheLeft, bool bForward)
@@ -880,8 +967,7 @@ void ACodeAICharacter::MouseTurnY(float Rate)
 
 void ACodeAICharacter::MoveForward(float Value)
 {
-	if (Controller != NULL && bAllowMovement)
-	{
+	if (Controller != NULL && bAllowMovement && !bIsCrouching){
 		//If the value is not 0, and the player is either not in cover or in cover
 		//that was triggered from the other movement direction
 		if (Value != 0.0f && (!bIsInCover || (bShouldBeInCoverRight && (Value != NoMov || !bNoMovForward)))) {
@@ -901,12 +987,15 @@ void ACodeAICharacter::MoveForward(float Value)
 		}
 		ForwardMov = Value;
 	}
+	else if (bIsCrouching) {
+		bIsCrouching = false;
+		PrepareProne();
+	}
 }
 
 void ACodeAICharacter::MoveRight(float Value)
 {
-	if (Controller != NULL && bAllowMovement)
-	{
+	if (Controller != NULL && bAllowMovement && !bIsCrouching){
 		if (bLeftMenuOpen) {
 			HandleMenuInput(Value);
 		}	
@@ -932,6 +1021,10 @@ void ACodeAICharacter::MoveRight(float Value)
 			}
 			RightMov = Value;
 		}
+	}
+	else if (bIsCrouching) {
+		bIsCrouching = false;
+		//PrepareProne();
 	}
 }
 

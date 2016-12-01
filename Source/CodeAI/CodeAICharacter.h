@@ -55,6 +55,8 @@ private:
 
 	UPROPERTY(EditDefaultsOnly)
 		TArray<UAnimationAsset*> DeathAnimations;
+	UPROPERTY(EditDefaultsOnly)
+		TArray<UAnimSequence*> StaggerAnimations;
 
 public:
 
@@ -139,6 +141,8 @@ public:
 		FORCEINLINE float GetHealth() const { return Health; }
 	UFUNCTION(BlueprintCallable, Category = Health)
 		FORCEINLINE bool FullHealth() const { return Health == MaxHealth; }
+	UFUNCTION(BlueprintCallable, Category = Health)
+		FORCEINLINE bool IsDead() const { return bIsDead; }
 
 
 	/******************************************
@@ -157,6 +161,8 @@ public:
 	//Returns whether or not the player is walking
 	UFUNCTION(BlueprintCallable, Category = Movement)
 		FORCEINLINE	bool GetIsWalking() const { return bIsWalking; }
+	UFUNCTION(BlueprintCallable, Category = Movement)
+		FORCEINLINE	bool GetIscrouching() const { return bIsCrouching; }
 
 
 	/******************************************
@@ -168,6 +174,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = Sound)
 		void ReportNoise(USoundBase* SoundToPlay, float Volume);
+
+	//Used to notify all the bots that there was a loud noise
+	void NotifyLoudNoise(FVector Loc);
 
 
 private:
@@ -199,6 +208,12 @@ private:
 	uint8 bIsWalking : 1;
 	//Determines whether the player can move or not
 	uint8 bAllowMovement : 1;
+	//Determines whether the player is crouching
+	uint8 bIsCrouching : 1;
+	//Determines whether the player is prone
+	uint8 bIsProne: 1;
+	//Determines whether the player is staggering
+	uint8 bIsStaggering : 1;
 
 
 	/******************************************
@@ -257,6 +272,7 @@ private:
 	******************************************/
 
 	TArray<class AMyAICharacter*> AttackingEnemies;
+	TArray<class AMyAICharacter*> AllEnemies;
 
 	//The player's health
 	float Health;
@@ -321,6 +337,18 @@ protected:
 	void FPPPressed();
 	//Called when the First Person Perspective button is released
 	void FPPReleased();
+	//Called when the crouch button is pressed
+	void CrouchPressed();
+	//Called when the crouch button is released
+	void CrouchReleased();
+	//Make the proper changes to allow crouching to prone functionality
+	void PrepareProne();
+	//When the prone animation is finished
+	void FinishProne();
+	//Handle the staggering mechanic
+	void HandleStagger();
+	//When the stagger mechanic has finished
+	void FinishStagger();
 	//Lowers the player's speed
 	void Walk();
 	//Resumes running by the player
