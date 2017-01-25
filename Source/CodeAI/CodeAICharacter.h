@@ -204,6 +204,10 @@ private:
 	//Registers the Y component of the mouse control
 	float YRate;
 
+	//Used to time the crouch movement
+	FTimerHandle CrouchHandle;
+	float CrouchMov;
+
 	//Determines whether the player is sprinting or not
 	uint8 bIsWalking : 1;
 	//Determines whether the player can move or not
@@ -337,6 +341,8 @@ protected:
 	void FPPPressed();
 	//Called when the First Person Perspective button is released
 	void FPPReleased();
+	//Called when the Pause button is pressed
+	void PausePressed();
 	//Called when the crouch button is pressed
 	void CrouchPressed();
 	//Called when the crouch button is released

@@ -10,6 +10,9 @@ EBTNodeResult::Type UBTClearValues::ExecuteTask(UBehaviorTreeComponent & OwnerCo
 	AAnAIController* AICon = Cast<AAnAIController>(OwnerComp.GetAIOwner());
 
 	if (AICon) {
+		if (AICon->GetState() == EAIState::AI_ChasingTarget) {
+			AICon->NotifyAudioManager();
+		}
 		AICon->SetState(EAIState::AI_Patrolling);
 		AICon->SetSlowSpeed(true);
 		AMyAICharacter* AIChar = Cast<AMyAICharacter>(AICon->GetCharacter());

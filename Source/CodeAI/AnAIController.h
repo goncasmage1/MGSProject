@@ -86,6 +86,8 @@ public:
 	void SetSlowSpeed(bool bSlow);
 	bool GetSlowSpeed();
 
+	void NotifyAudioManager();
+
 	
 	FORCEINLINE UBlackboardComponent* GetBlackboardComp() const { return BlackboardComp; }
 

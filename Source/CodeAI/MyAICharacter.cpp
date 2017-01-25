@@ -8,6 +8,7 @@
 #include "MyPlayerController.h"
 #include "BotTargetPoint.h"
 #include "WeaponItem.h"
+#include "AudioManager.h"
 #include "BehaviorTree/BehaviorTree.h"
 #include "Perception/PawnSensingComponent.h"
 #include "Kismet/KismetMathLibrary.h"
@@ -77,6 +78,12 @@ void AMyAICharacter::BeginPlay()
 			ChasingPawn = NewChar;
 		}
 	}
+
+	//Get a reference to the AudioManager
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AAudioManager::StaticClass(), AudioFetcher);
+	if (AudioFetcher.Num() > 0) {
+		AudioMan = Cast<AAudioManager>(AudioFetcher[0]);
+	}
 }
 
 void AMyAICharacter::Tick(float DeltaTime)
@@ -93,6 +100,7 @@ void AMyAICharacter::Tick(float DeltaTime)
 					Time = 0.f;
 					ExtraTime = FMath::RandRange(MinAttackRate, MaxAttackRate);
 					ShootWeapon();
+					AimWeapon();
 				}
 				if (!CheckLineOfSightTo(ChasingPawn)) {
 
@@ -226,6 +234,9 @@ void AMyAICharacter::DetectPlayer(class AAnAIController* AICon, APawn * Pawn)
 		bCanSeePlayer = true;
 		AimWeapon();
 		ChasingPawn->AddEnemy(this);
+		if (AudioMan) {
+			AudioMan->IncrementEnemies();
+		}
 	}
 }
 
@@ -422,7 +433,9 @@ void AMyAICharacter::OnDeath()
 	bCanSeePlayer = false;
 	bIsDead = true;
 	LowerWeapon();
-	//GetWorldTimerManager().SetTimer(DeathHandle, this, &AMyAICharacter::OnDestroy, 10.f, false);
+	if (AudioMan) {
+		AudioMan->DecrementEnemies();
+	}
 }
 
 void AMyAICharacter::OnDestroy()

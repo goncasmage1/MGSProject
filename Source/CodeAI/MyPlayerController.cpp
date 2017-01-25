@@ -3,6 +3,8 @@
 #include "CodeAI.h"
 #include "MyPlayerController.h"
 #include "PlayerUI.h"
+#include "PauseMenuWidget.h"
+#include "DeathMenuWidget.h"
 #include "ItemWidget.h"
 #include "CodeAICharacter.h"
 
@@ -15,8 +17,16 @@ void AMyPlayerController::Possess(APawn* InPawn)
 		PlayerUIRef = CreateWidget<UPlayerUI>(this, PlayerUIBP);
 		PlayerUIRef->Show();
 	}
+	if (PauseMenuBP) {
+		PauseMenuRef = CreateWidget<UPauseMenuWidget>(this, PauseMenuBP);
+	}
+	if (DeathMenuBP) {
+		DeathMenuRef = CreateWidget<UDeathMenuWidget>(this, DeathMenuBP);
+	}
 	bIsLeftMenuOpen = false;
 	bIsRightMenuOpen = false;
+	bIsPaused = false;
+	bIsDead = false;
 }
 
 void AMyPlayerController::ToogleLeftMenu()
@@ -52,6 +62,48 @@ void AMyPlayerController::ToogleCurrentItem()
 	if (Char) {
 		PlayerUIRef->ItemsArray = Char->GetInventory();
 		PlayerUIRef->ToogleShowLeftItem();
+	}
+}
+
+void AMyPlayerController::TooglePauseMenu()
+{
+	if (!bIsPaused) {
+		bIsPaused = true;
+		PauseMenuRef->Show();
+		bShowMouseCursor = true;
+		FInputModeGameAndUI InputMode;
+		SetInputMode(InputMode);
+		SetPause(true);
+	}
+	else {
+		bIsPaused = false;
+		PauseMenuRef->Hide();
+		bShowMouseCursor = false;
+		FInputModeGameOnly InputMode;
+		SetInputMode(InputMode);
+		SetPause(false);
+	}
+}
+
+void AMyPlayerController::ShowDeathMenu()
+{
+	if (!bIsDead) {
+		bIsDead = true;
+		DeathMenuRef->Show();
+		bShowMouseCursor = true;
+		FInputModeUIOnly InputMode;
+		SetInputMode(InputMode);
+	}
+}
+
+void AMyPlayerController::HideDeathMenu()
+{
+	if (bIsDead) {
+		bIsDead = false;
+		DeathMenuRef->Hide();
+		bShowMouseCursor = false;
+		FInputModeGameOnly InputMode;
+		SetInputMode(InputMode);
 	}
 }
 

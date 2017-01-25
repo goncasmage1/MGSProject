@@ -429,26 +429,38 @@ void ACodeAICharacter::ReloadReleased()
 
 void ACodeAICharacter::FPPPressed()
 {
-	bUsingFPP = true;
-	if (FollowCamera->IsActive()) {
-		FollowCamera->Deactivate();
+	if (!bIsDead) {
+		bUsingFPP = true;
+		if (FollowCamera->IsActive()) {
+			FollowCamera->Deactivate();
+		}
+		else if (LeftCamera->IsActive()) {
+			LeftCamera->Deactivate();
+		}
+		else if (RightCamera->IsActive()) {
+			RightCamera->Deactivate();
+		}
+		FPPCamera->Activate();
+		ToogleCharacterControls(false);
 	}
-	else if (LeftCamera->IsActive()) {
-		LeftCamera->Deactivate();
-	}
-	else if (RightCamera->IsActive()) {
-		RightCamera->Deactivate();
-	}
-	FPPCamera->Activate();
-	ToogleCharacterControls(false);
 }
 
 void ACodeAICharacter::FPPReleased()
 {
-	bUsingFPP = false;
-	FPPCamera->Deactivate();
-	FollowCamera->Activate();
-	ToogleCharacterControls(true);
+	if (!bIsDead) {
+		bUsingFPP = false;
+		FPPCamera->Deactivate();
+		FollowCamera->Activate();
+		ToogleCharacterControls(true);
+	}
+}
+
+void ACodeAICharacter::PausePressed()
+{
+	AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
+	if (MyPC) {
+		MyPC->TooglePauseMenu();
+	}
 }
 
 void ACodeAICharacter::CrouchPressed()
@@ -496,7 +508,7 @@ void ACodeAICharacter::HandleStagger()
 
 void ACodeAICharacter::FinishStagger()
 {
-
+	
 }
 
 bool ACodeAICharacter::AddItem(AGameItem * Item)
@@ -697,11 +709,21 @@ float ACodeAICharacter::TakeDamage(float DamageAmount, FDamageEvent const & Dama
 
 void ACodeAICharacter::OnDeath()
 {
+	bIsDead = true;
+	if (AttackingEnemies.Num() > 0) {
+		for (AMyAICharacter* Enemy : AttackingEnemies) {
+			if (!Enemy->IsDead()) {
+				Enemy->PlayerKilled();
+			}
+		}
+	}
 	if (PlayerDead) {
 		UGameplayStatics::PlaySound2D(GetWorld(), PlayerDead);
 	}
-	bIsDead = true;
-	DisableInput(Cast<AMyPlayerController>(GetController()));
+	AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
+	if (MyPC) {
+		MyPC->ShowDeathMenu();
+	}
 	SwitchToDeathCamera();
 
 	if (bItemEquipped) {
@@ -715,13 +737,6 @@ void ACodeAICharacter::OnDeath()
 	if (DeathAnimations.Num() > 0) {
 		int Random = FMath::RandRange(0, DeathAnimations.Num() - 1);
 		GetMesh()->PlayAnimation(DeathAnimations[Random], false);
-	}
-	if (AttackingEnemies.Num() > 0) {
-		for (AMyAICharacter* Enemy : AttackingEnemies) {
-			if (!Enemy->IsDead()) {
-				Enemy->PlayerKilled();
-			}
-		}
 	}
 }
 
@@ -865,6 +880,8 @@ void ACodeAICharacter::SetupPlayerInputComponent(class UInputComponent* inputCom
 	inputComponent->BindAction("FPP", IE_Pressed, this, &ACodeAICharacter::FPPPressed);
 	inputComponent->BindAction("FPP", IE_Released, this, &ACodeAICharacter::FPPReleased);
 
+	inputComponent->BindAction("Pause", IE_Pressed, this, &ACodeAICharacter::PausePressed).bExecuteWhenPaused = true;
+
 	//inputComponent->BindAction("Crouch", IE_Pressed, this, &ACodeAICharacter::FPPPressed);
 	//inputComponent->BindAction("Crouch", IE_Released, this, &ACodeAICharacter::FPPReleased);
 
@@ -988,6 +1005,15 @@ void ACodeAICharacter::MoveForward(float Value)
 		ForwardMov = Value;
 	}
 	else if (bIsCrouching) {
+		if (CrouchMov != 0.f) {
+
+		}
+		if (Value != 0.f) {
+
+		}
+		else {
+
+		}
 		bIsCrouching = false;
 		PrepareProne();
 	}

@@ -3,6 +3,7 @@
 #include "CodeAI.h"
 #include "AnAIController.h"
 #include "BotTargetPoint.h"
+#include "AudioManager.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "BehaviorTree/BehaviorTreeComponent.h"
 #include "BehaviorTree/BehaviorTree.h"
@@ -202,6 +203,14 @@ bool AAnAIController::GetSlowSpeed()
 		return BlackboardComp->GetValueAsBool(SlowSpeedKey);
 	}
 	return false;
+}
+
+void AAnAIController::NotifyAudioManager()
+{
+	AMyAICharacter* AICharacter = Cast<AMyAICharacter>(GetPawn());
+	if (AICharacter) {
+		AICharacter->AudioMan->DecrementEnemies();
+	}
 }
 
 

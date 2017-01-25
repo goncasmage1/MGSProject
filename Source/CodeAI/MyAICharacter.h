@@ -72,6 +72,8 @@ private:
 	//Stores the index of the current target point to chase
 	uint8 TargetPointNum;
 
+	TArray<class AActor*> AudioFetcher;
+
 	
 	/******************************************
 	*		HEALTH
@@ -86,6 +88,7 @@ private:
 	//Extra time to add in between attacks
 	UPROPERTY(EditDefaultsOnly)
 		float MaxAttackRate;
+
 	FTimerHandle DeathHandle;
 	
 	//Indicates whether the bot is dead
@@ -133,6 +136,8 @@ public:
 		class UBehaviorTree* BehaviorTree;
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 		class UPawnNoiseEmitterComponent* PawnNoiseEmitterComp;
+
+	class AAudioManager* AudioMan;
 
 	
 	/******************************************
