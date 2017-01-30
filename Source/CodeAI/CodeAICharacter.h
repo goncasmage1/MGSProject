@@ -18,7 +18,11 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	class USpringArmComponent* CameraBoom;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
-	class UCameraComponent* FollowCamera;
+	class UCameraComponent* TransitionCamera;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
+	class USpringArmComponent* TopDownBoom;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
+	class UCameraComponent* TopDownCamera;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	class USpringArmComponent* LeftBoom;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
@@ -124,6 +128,7 @@ public:
 	/******************************************
 	*		HEALTH
 	******************************************/
+
 	//The player's health on a scale of 0 to 1
 	UPROPERTY(BlueprintReadOnly, Category = Health)
 		float HUDHealth;
@@ -148,6 +153,7 @@ public:
 	/******************************************
 	*		MOVEMENT
 	******************************************/
+
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
 		float BaseTurnRate;
@@ -162,12 +168,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Movement)
 		FORCEINLINE	bool GetIsWalking() const { return bIsWalking; }
 	UFUNCTION(BlueprintCallable, Category = Movement)
-		FORCEINLINE	bool GetIscrouching() const { return bIsCrouching; }
+		FORCEINLINE	bool GetIsCrouching() const { return bIsCrouching; }
+	UFUNCTION(BlueprintCallable, Category = Movement)
+		FORCEINLINE	bool GetIsProne() const { return bIsProne; }
 
 
 	/******************************************
 	*		NOISE
 	******************************************/
+
 	/*Plays a sound in-game and reports it to entities who have a UPawnSensingComponent (AI)*/
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 		UPawnNoiseEmitterComponent* PawnNoiseEmitterComp;
@@ -206,7 +215,24 @@ private:
 
 	//Used to time the crouch movement
 	FTimerHandle CrouchHandle;
-	float CrouchMov;
+	//Keeps track of the player's movement while crouching
+	float HorizontalCrouchMov;
+	float VerticalCrouchMov;
+	//The amount of time to wait before the player goes prone after crouching
+	UPROPERTY(EditAnywhere)
+		float CrouchWait;
+	UPROPERTY(EditAnywhere, meta = (ClampMin = "0.2", ClampMax = "6.0", UIMin = "0.2", UIMax = "6.0"))
+		float ProneMovement;
+
+	FTimerHandle AnimationHandle;
+	UPROPERTY(EditAnywhere)
+		UAnimSequence* ProneMontage;
+	UPROPERTY(EditAnywhere)
+		float ProneMontageLength;
+	UPROPERTY(EditAnywhere)
+		UAnimSequence* CrouchMontage;
+	UPROPERTY(EditAnywhere)
+		float CrouchMontageLength;
 
 	//Determines whether the player is sprinting or not
 	uint8 bIsWalking : 1;
@@ -214,10 +240,15 @@ private:
 	uint8 bAllowMovement : 1;
 	//Determines whether the player is crouching
 	uint8 bIsCrouching : 1;
+	//Determines whether the player is pressing the crouching button
+	uint8 bIsCrouchPressed : 1;
 	//Determines whether the player is prone
 	uint8 bIsProne: 1;
 	//Determines whether the player is staggering
 	uint8 bIsStaggering : 1;
+
+	//A reference to the world camera currently being used
+	UCameraComponent* TemporaryCamera;
 
 
 	/******************************************
@@ -255,7 +286,7 @@ private:
 	/*Registers for how long the player has to hold down the menu button
 	in order for the menu to pop up*/
 	float MenuTimer;
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(EditAnywhere)
 		float MenuHeldDownTime;
 
 	//Determines whether the left menu is open or closed
@@ -281,7 +312,7 @@ private:
 	//The player's health
 	float Health;
 	//The player's max health
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(EditAnywhere)
 		float MaxHealth;
 
 	//Determines whether the player is dead
@@ -347,8 +378,14 @@ protected:
 	void CrouchPressed();
 	//Called when the crouch button is released
 	void CrouchReleased();
+	//Updates the player's rotation (used when crouching)
+	void UpdateRotation(float NewHor, float NewVer);
 	//Make the proper changes to allow crouching to prone functionality
 	void PrepareProne();
+	//Change the variables to start prone
+	void StartProne();
+	//Make the proper changes to allow prone to crouching functionality
+	void PrepareCrouch();
 	//When the prone animation is finished
 	void FinishProne();
 	//Handle the staggering mechanic
@@ -373,17 +410,27 @@ protected:
 
 	void MouseTurnX(float Rate);
 	void MouseTurnY(float Rate);
+
 	/** Called for forwards/backward input */
 	void MoveForward(float Value);
+	//Handle the vertical portion of crouching
+	void HandleVerticalCrouch(float Value);
+	//Handle the prone movement
+	void HandleProneMovement(float Value);
+
 	/** Called for side to side input */
 	void MoveRight(float Value);
+	//Handle the horizontal portion of crouching
+	void HandleHorizontalCrouch(float Value);
+	//Handle the prone rotation
+	void HandleProneRotation(float Value);
 
 public:
 
 	/** Returns CameraBoom subobject **/
 	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
 	/** Returns FollowCamera subobject **/
-	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
+	FORCEINLINE class UCameraComponent* GetTopDownCamera() const { return TopDownCamera; }
 	 
 };
 

@@ -39,10 +39,16 @@ ACodeAICharacter::ACodeAICharacter()
 	CameraBoom->TargetArmLength = 300.0f; // The camera follows at this distance behind the character	
 	CameraBoom->bUsePawnControlRotation = false; // Rotate the arm based on the controller
 
-												 // Create a follow camera
-	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
-	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
-	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
+	TransitionCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("TransitionCamera"));
+	TransitionCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
+	TransitionCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
+
+	TopDownBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("Top Down Boom"));
+	TopDownBoom->SetupAttachment(RootComponent);
+	TopDownBoom->bUsePawnControlRotation = true;
+
+	TopDownCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("Top Down Camera"));
+	TopDownCamera->SetupAttachment(TopDownBoom, USpringArmComponent::SocketName);
 
 	LeftBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("Left Boom"));
 	LeftBoom->SetupAttachment(RootComponent);
@@ -91,6 +97,7 @@ ACodeAICharacter::ACodeAICharacter()
 	bShouldAddItem = true;
 	bAllowMovement = true;
 	bIsCrouching = false;
+	bIsCrouchPressed = false;
 	bIsProne = false;
 	bIsStaggering = false;
 	bIsDead = false;
@@ -101,9 +108,12 @@ ACodeAICharacter::ACodeAICharacter()
 	WalkSpeedDecrease = 3.f;
 	CoverSpeedDecrease = 2.5f;
 	ForwardMov = RightMov = NoMov = 0.f;
+	HorizontalCrouchMov = VerticalCrouchMov = 0.f;
 	XRate = YRate = 0.f;
 	MenuTimer = 0.f;
 	MenuHeldDownTime = 0.2f;
+	CrouchWait = 0.2f;
+	ProneMovement = 0.5f;
 	CoverPeakDistance = 60.f;
 
 	MaxHealth = 100.f;
@@ -114,6 +124,8 @@ ACodeAICharacter::ACodeAICharacter()
 void ACodeAICharacter::BeginPlay()
 {
 	Super::BeginPlay();
+
+	TransitionCamera->SetWorldTransform(TopDownCamera->GetComponentTransform());
 
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 
@@ -155,13 +167,7 @@ void ACodeAICharacter::Tick(float DeltaTime)
 void ACodeAICharacter::HandlePlayerRotation()
 {
 	if (YRate != 0.f && XRate != 0.f) {
-		/*
-		FVector New = FVector(-YRate, XRate, 0.f);
-		FRotator Rot = GetActorRotation();
-		Rot.Yaw = New.Rotation().Yaw;
-		SetActorRotation(Rot);
-		*/
-		//AddControllerYawInput();
+		SetActorRotation(GetControlRotation());
 	}
 }
 
@@ -197,7 +203,7 @@ void ACodeAICharacter::OnEndCover()
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 	GetCharacterMovement()->MaxWalkSpeed *= CoverSpeedDecrease;
 	NoMov = 0.f;
-	if (!FollowCamera->IsActive()) {
+	if (!TopDownCamera->IsActive()) {
 		ToggleCamera(true, false);
 	}
 }
@@ -220,7 +226,7 @@ void ACodeAICharacter::HandleForwardCover()
 		if (!InCoverLeftLineTrace(true, true)) {
 			NoMov = RightMov;
 			bNoMovForward = false;
-			if (FollowCamera->IsActive()) {
+			if (TopDownCamera->IsActive()) {
 				if (ForwardMov > 0.f) {
 					ToggleCamera(false, true);
 				}
@@ -234,7 +240,7 @@ void ACodeAICharacter::HandleForwardCover()
 		if (!InCoverLeftLineTrace(false, true)) {
 			NoMov = RightMov;
 			bNoMovForward = false;
-			if (FollowCamera->IsActive()) {
+			if (TopDownCamera->IsActive()) {
 				if (ForwardMov > 0.f) {
 					ToggleCamera(false, false);
 				}
@@ -252,7 +258,7 @@ void ACodeAICharacter::HandleRightCover()
 		if (!InCoverLeftLineTrace(true, false)) {
 			NoMov = ForwardMov;
 			bNoMovForward = true;
-			if (FollowCamera->IsActive()) {
+			if (TopDownCamera->IsActive()) {
 				if (RightMov > 0.f) {
 					ToggleCamera(false, false);
 				}
@@ -266,7 +272,7 @@ void ACodeAICharacter::HandleRightCover()
 		if (!InCoverLeftLineTrace(false, false)) {
 			NoMov = ForwardMov;
 			bNoMovForward = true;
-			if (FollowCamera->IsActive()) {
+			if (TopDownCamera->IsActive()) {
 				if (RightMov > 0.f) {
 					ToggleCamera(false, true);
 				}
@@ -431,8 +437,8 @@ void ACodeAICharacter::FPPPressed()
 {
 	if (!bIsDead) {
 		bUsingFPP = true;
-		if (FollowCamera->IsActive()) {
-			FollowCamera->Deactivate();
+		if (TopDownCamera->IsActive()) {
+			TopDownCamera->Deactivate();
 		}
 		else if (LeftCamera->IsActive()) {
 			LeftCamera->Deactivate();
@@ -450,7 +456,7 @@ void ACodeAICharacter::FPPReleased()
 	if (!bIsDead) {
 		bUsingFPP = false;
 		FPPCamera->Deactivate();
-		FollowCamera->Activate();
+		TopDownCamera->Activate();
 		ToogleCharacterControls(true);
 	}
 }
@@ -465,16 +471,50 @@ void ACodeAICharacter::PausePressed()
 
 void ACodeAICharacter::CrouchPressed()
 {
-	bIsCrouching = true;
+	if (bAllowMovement) {
+		bIsCrouchPressed = true;
+		if (!bIsProne) {
+			bIsCrouching = !bIsCrouching;
+		}
+		else {
+			PrepareCrouch();
+		}
+		GetWorld()->GetTimerManager().SetTimer(CrouchHandle, this, &ACodeAICharacter::PrepareProne, CrouchWait, false);
+	}
 }
 
 void ACodeAICharacter::CrouchReleased()
 {
-	bIsCrouching = false;
+	bIsCrouchPressed = false;
+	GetWorld()->GetTimerManager().ClearTimer(CrouchHandle);
+	if (HorizontalCrouchMov != 0.f || VerticalCrouchMov != 0.f && !bIsProne) {
+		GetWorld()->GetTimerManager().SetTimer(CrouchHandle, this, &ACodeAICharacter::PrepareProne, CrouchWait, false);
+	}
+}
+
+void ACodeAICharacter::UpdateRotation(float NewHor, float NewVer)
+{
+	if (NewHor != 0.f || NewVer != 0.f) {
+		FRotator NewRot = GetActorRotation();
+		float newZ = 180 - 90 * NewHor;
+		if (newZ > 180.f) {
+			newZ += 45 * NewVer;
+		}
+		else if (newZ < 180.f) {
+			newZ -= 45 * NewVer;
+		}
+		else {
+			newZ = 90 - 90 * NewVer;
+		}
+		NewRot.Yaw = newZ;
+		SetActorRotation(NewRot);
+	}
 }
 
 void ACodeAICharacter::PrepareProne()
 {
+	bAllowMovement = false;
+	GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Green, TEXT("Prone"));
 	if (bItemEquipped) {
 		//Unequip the item if it is a weapon
 		AWeaponItem* Weapon = Cast<AWeaponItem>(InventoryArray[EquippedIndex]);
@@ -482,11 +522,51 @@ void ACodeAICharacter::PrepareProne()
 			Weapon->CancelUse();
 		}
 	}
+	/*
+	if (ProneMontage) {
+		GetMesh()->PlayAnimation((UAnimationAsset* )ProneMontage, false);
+	}
+	GetWorldTimerManager().SetTimer(AnimationHandle, this, &ACodeAICharacter::StartProne, ProneMontageLength);
+	*/
+	StartProne();
+}
+
+void ACodeAICharacter::StartProne()
+{
+	GetMesh()->Stop();
+	bIsProne = true;
+	bAllowMovement = true;
+	HorizontalCrouchMov = 0.f;
+	VerticalCrouchMov = 0.f;
+}
+
+void ACodeAICharacter::PrepareCrouch()
+{
+	bAllowMovement = false;
+	GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Green, TEXT("Unprone"));
+	if (bItemEquipped) {
+		//Unequip the item if it is a weapon
+		AWeaponItem* Weapon = Cast<AWeaponItem>(InventoryArray[EquippedIndex]);
+		if (Weapon) {
+			Weapon->CancelUse();
+		}
+	}
+	/*
+	if (CrouchMontage) {
+		GetMesh()->PlayAnimation((UAnimationAsset*)CrouchMontage, false);
+	}
+	GetWorldTimerManager().SetTimer(AnimationHandle, this, &ACodeAICharacter::FinishProne, CrouchMontageLength);
+	*/
+	FinishProne();
 }
 
 void ACodeAICharacter::FinishProne()
 {
-	bIsProne = true;
+	GetMesh()->Stop();
+	bIsProne = false;
+	bAllowMovement = true;
+	HorizontalCrouchMov = 0.f;
+	VerticalCrouchMov = 0.f;
 }
 
 void ACodeAICharacter::HandleStagger()
@@ -748,8 +828,8 @@ void ACodeAICharacter::SwitchToDeathCamera()
 	else if (RightCamera->IsActive()) {
 		RightCamera->Deactivate();
 	}
-	else if (FollowCamera->IsActive()) {
-		FollowCamera->Deactivate();
+	else if (TopDownCamera->IsActive()) {
+		TopDownCamera->Deactivate();
 	}
 	DeathBoom->AddWorldRotation(FRotator(FMath::RandRange(-30.f, 0.f), FMath::RandRange(0.f, 360.f), 0.f).Quaternion());
 	DeathCamera->Activate();
@@ -831,10 +911,10 @@ void ACodeAICharacter::ToggleCamera(bool bDefaultCamera, bool bLeftCamera)
 		else if (RightCamera->IsActive()) {
 			RightCamera->Deactivate();
 		}
-		FollowCamera->Activate();
+		TopDownCamera->Activate();
 	}
 	else {
-		FollowCamera->Deactivate();
+		TopDownCamera->Deactivate();
 
 		if (bLeftCamera) {
 			LeftCamera->Activate();
@@ -879,6 +959,9 @@ void ACodeAICharacter::SetupPlayerInputComponent(class UInputComponent* inputCom
 
 	inputComponent->BindAction("FPP", IE_Pressed, this, &ACodeAICharacter::FPPPressed);
 	inputComponent->BindAction("FPP", IE_Released, this, &ACodeAICharacter::FPPReleased);
+
+	inputComponent->BindAction("Crouch", IE_Pressed, this, &ACodeAICharacter::CrouchPressed);
+	inputComponent->BindAction("Crouch", IE_Released, this, &ACodeAICharacter::CrouchReleased);
 
 	inputComponent->BindAction("Pause", IE_Pressed, this, &ACodeAICharacter::PausePressed).bExecuteWhenPaused = true;
 
@@ -984,74 +1067,122 @@ void ACodeAICharacter::MouseTurnY(float Rate)
 
 void ACodeAICharacter::MoveForward(float Value)
 {
-	if (Controller != NULL && bAllowMovement && !bIsCrouching){
-		//If the value is not 0, and the player is either not in cover or in cover
-		//that was triggered from the other movement direction
-		if (Value != 0.0f && (!bIsInCover || (bShouldBeInCoverRight && (Value != NoMov || !bNoMovForward)))) {
-			// get forward vector
-			const FVector Direction = FRotationMatrix(FRotator(0.f, -1.f, 0.f)).GetUnitAxis(EAxis::X);
-			AddMovementInput(Direction, Value);
+	if (bAllowMovement) {
+		if (!bIsProne) {
+			if (Controller != NULL && !bIsCrouching) {
+				//Reset CrouchMov
+				if (VerticalCrouchMov != 0.f) {
+					VerticalCrouchMov = 0.f;
+				}
+				//If the value is not 0, and the player is either not in cover or in cover
+				//that was triggered from the other movement direction
+				if (Value != 0.0f && (!bIsInCover || (bShouldBeInCoverRight && (Value != NoMov || !bNoMovForward)))) {
+					// get forward vector
+					const FVector Direction = FRotationMatrix(FRotator(0.f, -1.f, 0.f)).GetUnitAxis(EAxis::X);
+					AddMovementInput(Direction, Value);
 
-			if (NoMov != 0.f) {
-				NoMov = 0.f;
+					if (NoMov != 0.f) {
+						NoMov = 0.f;
+					}
+				}
+				if (Value == 0.f && !TopDownCamera->IsActive()) {
+					ToggleCamera(true);
+					if (NoMov != 0.f) {
+						NoMov = 0.f;
+					}
+				}
+				ForwardMov = Value;
 			}
-		}
-		if (Value == 0.f && !FollowCamera->IsActive()) {
-			ToggleCamera(true);
-			if (NoMov != 0.f) {
-				NoMov = 0.f;
+			//If the player is crouching
+			else if (bIsCrouching) {
+				HandleVerticalCrouch(Value);
 			}
-		}
-		ForwardMov = Value;
-	}
-	else if (bIsCrouching) {
-		if (CrouchMov != 0.f) {
-
-		}
-		if (Value != 0.f) {
-
 		}
 		else {
-
+			HandleProneMovement(Value);
 		}
-		bIsCrouching = false;
-		PrepareProne();
 	}
+}
+
+void ACodeAICharacter::HandleVerticalCrouch(float Value)
+{
+	if (Value != VerticalCrouchMov) {
+		GetWorld()->GetTimerManager().ClearTimer(CrouchHandle);
+		UpdateRotation(HorizontalCrouchMov, VerticalCrouchMov);
+		if (!(Value == 0.f && VerticalCrouchMov == 0.f)) {
+			GetWorld()->GetTimerManager().SetTimer(CrouchHandle, this, &ACodeAICharacter::PrepareProne, CrouchWait, false);
+		}
+	}
+	VerticalCrouchMov = Value;
+}
+
+void ACodeAICharacter::HandleProneMovement(float Value)
+{
+	AddMovementInput(GetActorForwardVector() * Value * ProneMovement);
 }
 
 void ACodeAICharacter::MoveRight(float Value)
 {
-	if (Controller != NULL && bAllowMovement && !bIsCrouching){
-		if (bLeftMenuOpen) {
-			HandleMenuInput(Value);
-		}	
+	if (bAllowMovement) {
+		if (!bIsProne) {
+			if (Controller != NULL && !bIsCrouching) {
+				if (HorizontalCrouchMov != 0.f) {
+					HorizontalCrouchMov = 0.f;
+				}
+				//If the value is not 0, and the player is either not in cover or in cover
+				//that was triggered from the other movement direction
+				if (Value != 0.0f && (!bIsInCover || (bShouldBeInCoverForward && (Value != NoMov || bNoMovForward)))) {
+
+					// get right vector 
+					const FVector Direction = FRotationMatrix(FRotator(0.f, -1.f, 0.f)).GetUnitAxis(EAxis::Y);
+					// add movement in that direction
+					AddMovementInput(Direction, Value);
+
+					if (NoMov != 0.f) {
+						NoMov = 0.f;
+					}
+				}
+				if (Value == 0.f && !TopDownCamera->IsActive()) {
+					ToggleCamera(true);
+					if (NoMov != 0.f) {
+						NoMov = 0.f;
+					}
+				}
+				RightMov = Value;
+			}
+			//If the player is crouching
+			else if (bIsCrouching) {
+				HandleHorizontalCrouch(Value);
+			}
+		}
 		else {
-			//If the value is not 0, and the player is either not in cover or in cover
-			//that was triggered from the other movement direction
-			if (Value != 0.0f && (!bIsInCover || (bShouldBeInCoverForward && (Value != NoMov || bNoMovForward)))) {
-
-				// get right vector 
-				const FVector Direction = FRotationMatrix(FRotator(0.f, -1.f, 0.f)).GetUnitAxis(EAxis::Y);
-				// add movement in that direction
-				AddMovementInput(Direction, Value);
-
-				if (NoMov != 0.f) {
-					NoMov = 0.f;
-				}
-			}
-			if (Value == 0.f && !FollowCamera->IsActive()) {
-				ToggleCamera(true);
-				if (NoMov != 0.f) {
-					NoMov = 0.f;
-				}
-			}
-			RightMov = Value;
+			HandleProneRotation(Value);
 		}
 	}
-	else if (bIsCrouching) {
-		bIsCrouching = false;
-		//PrepareProne();
+	else {
+		if (bLeftMenuOpen) {
+			HandleMenuInput(Value);
+		}
 	}
+}
+
+void ACodeAICharacter::HandleHorizontalCrouch(float Value)
+{
+	if (Value != HorizontalCrouchMov) {
+		GetWorld()->GetTimerManager().ClearTimer(CrouchHandle);
+		UpdateRotation(HorizontalCrouchMov, VerticalCrouchMov);
+		if (!(Value == 0.f && VerticalCrouchMov == 0.f)) {
+			GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red, TEXT("No Timer"));
+			GetWorld()->GetTimerManager().SetTimer(CrouchHandle, this, &ACodeAICharacter::PrepareProne, CrouchWait, false);
+		}
+	}
+	HorizontalCrouchMov = Value;
+}
+
+void ACodeAICharacter::HandleProneRotation(float Value)
+{
+	GEngine->AddOnScreenDebugMessage(-1, .2f, FColor::Red, TEXT("Rotating"));
+	SetActorRotation(GetActorRotation() + FRotator(0.f, 2.5f * Value, 0.f));
 }
 
 void ACodeAICharacter::HandleMenuInput(float Value)
