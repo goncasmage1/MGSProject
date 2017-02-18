@@ -1124,43 +1124,43 @@ void ACodeAICharacter::HandleProneMovement(float Value)
 void ACodeAICharacter::MoveRight(float Value)
 {
 	if (bAllowMovement) {
-		if (!bIsProne) {
-			if (Controller != NULL && !bIsCrouching) {
-				if (HorizontalCrouchMov != 0.f) {
-					HorizontalCrouchMov = 0.f;
-				}
-				//If the value is not 0, and the player is either not in cover or in cover
-				//that was triggered from the other movement direction
-				if (Value != 0.0f && (!bIsInCover || (bShouldBeInCoverForward && (Value != NoMov || bNoMovForward)))) {
-
-					// get right vector 
-					const FVector Direction = FRotationMatrix(FRotator(0.f, -1.f, 0.f)).GetUnitAxis(EAxis::Y);
-					// add movement in that direction
-					AddMovementInput(Direction, Value);
-
-					if (NoMov != 0.f) {
-						NoMov = 0.f;
+		if (!bLeftMenuOpen) {
+			if (!bIsProne) {
+				if (Controller != NULL && !bIsCrouching) {
+					if (HorizontalCrouchMov != 0.f) {
+						HorizontalCrouchMov = 0.f;
 					}
-				}
-				if (Value == 0.f && !TopDownCamera->IsActive()) {
-					ToggleCamera(true);
-					if (NoMov != 0.f) {
-						NoMov = 0.f;
+					//If the value is not 0, and the player is either not in cover or in cover
+					//that was triggered from the other movement direction
+					if (Value != 0.0f && (!bIsInCover || (bShouldBeInCoverForward && (Value != NoMov || bNoMovForward)))) {
+
+						// get right vector 
+						const FVector Direction = FRotationMatrix(FRotator(0.f, -1.f, 0.f)).GetUnitAxis(EAxis::Y);
+						// add movement in that direction
+						AddMovementInput(Direction, Value);
+
+						if (NoMov != 0.f) {
+							NoMov = 0.f;
+						}
 					}
+					if (Value == 0.f && !TopDownCamera->IsActive()) {
+						ToggleCamera(true);
+						if (NoMov != 0.f) {
+							NoMov = 0.f;
+						}
+					}
+					RightMov = Value;
 				}
-				RightMov = Value;
+				//If the player is crouching
+				else if (bIsCrouching) {
+					HandleHorizontalCrouch(Value);
+				}
 			}
-			//If the player is crouching
-			else if (bIsCrouching) {
-				HandleHorizontalCrouch(Value);
+			else {
+				HandleProneRotation(Value);
 			}
 		}
 		else {
-			HandleProneRotation(Value);
-		}
-	}
-	else {
-		if (bLeftMenuOpen) {
 			HandleMenuInput(Value);
 		}
 	}
