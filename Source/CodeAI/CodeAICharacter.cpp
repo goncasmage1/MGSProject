@@ -173,22 +173,22 @@ void ACodeAICharacter::HandlePlayerRotation()
 
 void ACodeAICharacter::HandleCoverLogic()
 {
-	//When the player enters cover from a forward position
+	//If the player enters cover from a forward position
 	if (ForwardMov != 0.0f && !bShouldBeInCoverForward && !bShouldBeInCoverRight && NoMov == 0) {
 		bShouldBeInCoverForward = true;
 		return;
 	}
-	//When the player enters cover from a right position
+	//If the player enters cover from a right position
 	else if (RightMov != 0.0f && !bShouldBeInCoverForward && !bShouldBeInCoverRight && NoMov == 0) {
 		bShouldBeInCoverRight = true;
 		return;
 	}
-	//When the player exits cover from a forward position
+	//If the player exits cover from a forward position
 	else if (ForwardMov == 0.0f && bShouldBeInCoverForward) {
 		OnEndCover();
 		return;
 	}
-	//When the player exits cover from a right position
+	//If the player exits cover from a right position
 	else if (RightMov == 0.0f && bShouldBeInCoverRight) {
 		OnEndCover();
 		return;
@@ -222,8 +222,10 @@ void ACodeAICharacter::HandleCoverLineTrace()
 
 void ACodeAICharacter::HandleForwardCover()
 {
-	if ((ForwardMov > 0.f && RightMov > 0.f) || (ForwardMov < 0.f && RightMov > 0.f)) {
-		if (!InCoverLeftLineTrace(true, true)) {
+	if (ForwardMov != 0.f && RightMov > 0.f) {
+		/*When the line trace fails, the player reached the end of the cover
+		and should restrain from moving in that direction and also switch camera view*/
+		if (!CoverLineTrace(true, true)) {
 			NoMov = RightMov;
 			bNoMovForward = false;
 			if (TopDownCamera->IsActive()) {
@@ -236,8 +238,10 @@ void ACodeAICharacter::HandleForwardCover()
 			}
 		}
 	}
-	else if ((ForwardMov > 0.f && RightMov < 0.f) || (ForwardMov < 0.f && RightMov < 0.f)) {
-		if (!InCoverLeftLineTrace(false, true)) {
+	else if (ForwardMov != 0.f && RightMov < 0.f) {
+		/*When the line trace fails, the player reached the end of the cover
+		and should restrain from moving in that direction and also switch camera view*/
+		if (!CoverLineTrace(false, true)) {
 			NoMov = RightMov;
 			bNoMovForward = false;
 			if (TopDownCamera->IsActive()) {
@@ -254,8 +258,10 @@ void ACodeAICharacter::HandleForwardCover()
 
 void ACodeAICharacter::HandleRightCover()
 {
-	if ((RightMov > 0.f && ForwardMov > 0.f) || (RightMov < 0.f && ForwardMov > 0.f)) {
-		if (!InCoverLeftLineTrace(true, false)) {
+	if (RightMov != 0.f && ForwardMov > 0.f) {
+		/*When the line trace fails, the player reached the end of the cover
+		and should restrain from moving in that direction and also switch camera view*/
+		if (!CoverLineTrace(true, false)) {
 			NoMov = ForwardMov;
 			bNoMovForward = true;
 			if (TopDownCamera->IsActive()) {
@@ -268,8 +274,10 @@ void ACodeAICharacter::HandleRightCover()
 			}
 		}
 	}
-	else if ((RightMov > 0.f && ForwardMov < 0.f) || (RightMov < 0.f && ForwardMov < 0.f)) {
-		if (!InCoverLeftLineTrace(false, false)) {
+	else if (RightMov != 0.f && ForwardMov < 0.f) {
+		/*When the line trace fails, the player reached the end of the cover
+		and should restrain from moving in that direction and also switch camera view*/
+		if (!CoverLineTrace(false, false)) {
 			NoMov = ForwardMov;
 			bNoMovForward = true;
 			if (TopDownCamera->IsActive()) {
@@ -310,12 +318,15 @@ void ACodeAICharacter::HideLeftMenu()
 	bAllowNavigation = true;
 	MenuTimer = 0.f;
 	AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
+
+	//If the menu was opened (button was held)
 	if (bLeftMenuOpen) {
 		bLeftMenuOpen = false;
 		if (MyPC) {
 			MyPC->ToogleLeftMenu();
 		}
 	}
+	//If the item was toggled (button was simply pressed)
 	else {
 		if (bItemEquipped) {
 			bItemEquipped = false;
@@ -373,6 +384,7 @@ void ACodeAICharacter::HideRightMenu()
 
 void ACodeAICharacter::ActionPressed()
 {
+	//Use the item's ability
 	if (bLeftMenuOpen) {
 		InventoryArray[EquippedIndex]->MenuUse();
 		AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
@@ -380,6 +392,7 @@ void ACodeAICharacter::ActionPressed()
 			MyPC->UpdateItem();
 		}
 	}
+	//Knock on a wall
 	else if (bIsInCover) {
 		if (KnockingSound) {
 			ReportNoise(KnockingSound, 1.5f);
@@ -479,6 +492,7 @@ void ACodeAICharacter::CrouchPressed()
 		else {
 			PrepareCrouch();
 		}
+		//If the player holds the crouch button, enter prone
 		GetWorld()->GetTimerManager().SetTimer(CrouchHandle, this, &ACodeAICharacter::PrepareProne, CrouchWait, false);
 	}
 }
@@ -624,7 +638,7 @@ bool ACodeAICharacter::AddItem(AGameItem * Item)
 
 bool ACodeAICharacter::AddNewItem(AInventoryGameItem * NewItem)
 {
-	//Search all of the player's items
+	//Search all of the player's items for an item with the same name
 	for (AInventoryGameItem* PlayerItem : InventoryArray) {
 		if (PlayerItem->GetItemName() == NewItem->GetItemName()) {
 			bShouldAddItem = false;
@@ -642,18 +656,23 @@ bool ACodeAICharacter::AddNewItem(AInventoryGameItem * NewItem)
 
 bool ACodeAICharacter::AddAmmoItem(AAmmoItem * AmmoItem)
 {
+	//Search for a weapon that has compatible ammo
 	for (AInventoryGameItem* PlayerItem : InventoryArray) {
-		//If the item is ammo
 		AWeaponItem* Weapon = Cast<AWeaponItem>(PlayerItem);
+
 		if (Weapon && Weapon->GetItemName() == AmmoItem->GetWeaponName()) {
+			//If the weapon has full ammo, the player can't pickup the AmmoItem
 			if (Weapon->MagsAreFull()) {
 				AmmoItem->UpdateText(true);
 				return false;
 			}
+
 			else {
 				Weapon->AddAmmo(AmmoItem->GetQuantity());
 				AmmoItem->UpdateText(false);
 				//AmmoItem->DestroyComponents();
+
+				//Update weapon's ammo on the UI
 				AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
 				if (MyPC) {
 					MyPC->UpdateItem();
@@ -669,7 +688,7 @@ bool ACodeAICharacter::AddWeapon(AWeaponItem * WeaponItem)
 {
 	//Search all of the player's items
 	for (AInventoryGameItem* PlayerItem : InventoryArray) {
-		//If the items have the same name
+		//If the player already has this WeaponItem, don't add it
 		AWeaponItem* Item = Cast<AWeaponItem>(PlayerItem);
 		if (Item && Item->GetItemName() == WeaponItem->GetItemName()) {
 			bShouldAddItem = false;
@@ -687,6 +706,7 @@ bool ACodeAICharacter::AddWeapon(AWeaponItem * WeaponItem)
 			WeaponItem->GetGunMesh()->AttachToComponent(GetMesh(), FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), FName("RifleGrip"));
 		}
 		WeaponItem->SetOwner(this);
+
 		return true;
 	}
 	return false;
@@ -695,8 +715,9 @@ bool ACodeAICharacter::AddWeapon(AWeaponItem * WeaponItem)
 bool ACodeAICharacter::AddStackable(AStackableGameItem * StackableItem)
 {
 	for (AInventoryGameItem* PlayerItem : InventoryArray) {
-		//If the items have the same name
+		//If the player already has this item, simply increment the existing one
 		AStackableGameItem* Item = Cast<AStackableGameItem>(PlayerItem);
+
 		if (Item && Item->GetItemName() == StackableItem->GetItemName()) {
 			bShouldAddItem = false;
 			Item->AddQuantity(1);
@@ -790,6 +811,7 @@ float ACodeAICharacter::TakeDamage(float DamageAmount, FDamageEvent const & Dama
 void ACodeAICharacter::OnDeath()
 {
 	bIsDead = true;
+	//Notify the enemies that the player was killed
 	if (AttackingEnemies.Num() > 0) {
 		for (AMyAICharacter* Enemy : AttackingEnemies) {
 			if (!Enemy->IsDead()) {
@@ -814,6 +836,7 @@ void ACodeAICharacter::OnDeath()
 		}
 	}
 
+	//Play random death animation
 	if (DeathAnimations.Num() > 0) {
 		int Random = FMath::RandRange(0, DeathAnimations.Num() - 1);
 		GetMesh()->PlayAnimation(DeathAnimations[Random], false);
@@ -1006,39 +1029,21 @@ void ACodeAICharacter::NotifyLoudNoise(FVector Loc)
 	}
 }
 
-bool ACodeAICharacter::InCoverLeftLineTrace(bool bToTheLeft, bool bForward)
+bool ACodeAICharacter::CoverLineTrace(bool bLeft, bool bForward)
 {
 	FVector Start = GetActorLocation();
 	Start.Z += 30.f;
 	//Changes the offset depending on whether the trace is supposed
 	//to be executed to the left or right
-	float Offset;
-	if (bToTheLeft) {
-		Offset = CoverPeakDistance;
-	}
-	else {
-		Offset = -CoverPeakDistance;
-	}
-	//Changes the vector to add to the start vector,
-	//depending on the orientation of the cover
-	if (bForward) {
-		Start += FVector(0.f, Offset, 0.f);
-	}
-	else {
-		Start += FVector(Offset, 0.f, 0.f);
-	}
-
+	float Offset = bLeft ? CoverPeakDistance : -CoverPeakDistance;
+	//Changes the vector's direction,
+	//depending on the orientation of cover
+	Start += bForward ? FVector(0.f, Offset, 0.f) : FVector(Offset, 0.f, 0.f);
 	FVector End = Start - (GetActorForwardVector() * 100);
 	FHitResult Hit;
 
 	if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility)) {
-		//DrawDebugLine(GetWorld(), Start, End, FColor::Green, true);
-		if (Hit.bBlockingHit) {
-			return true;
-		}
-		else {
-			return false;
-		}
+		return Hit.bBlockingHit;
 	}
 	else {
 		return false;
@@ -1070,21 +1075,26 @@ void ACodeAICharacter::MoveForward(float Value)
 	if (bAllowMovement) {
 		if (!bIsProne) {
 			if (Controller != NULL && !bIsCrouching) {
+
 				//Reset CrouchMov
 				if (VerticalCrouchMov != 0.f) {
 					VerticalCrouchMov = 0.f;
 				}
+
 				//If the value is not 0, and the player is either not in cover or in cover
 				//that was triggered from the other movement direction
 				if (Value != 0.0f && (!bIsInCover || (bShouldBeInCoverRight && (Value != NoMov || !bNoMovForward)))) {
+
 					// get forward vector
 					const FVector Direction = FRotationMatrix(FRotator(0.f, -1.f, 0.f)).GetUnitAxis(EAxis::X);
 					AddMovementInput(Direction, Value);
 
+					//Reset "illegal" movement
 					if (NoMov != 0.f) {
 						NoMov = 0.f;
 					}
 				}
+
 				if (Value == 0.f && !TopDownCamera->IsActive()) {
 					ToggleCamera(true);
 					if (NoMov != 0.f) {
@@ -1093,11 +1103,13 @@ void ACodeAICharacter::MoveForward(float Value)
 				}
 				ForwardMov = Value;
 			}
+
 			//If the player is crouching
-			else if (bIsCrouching) {
+			else if (Controller != NULL) {
 				HandleVerticalCrouch(Value);
 			}
 		}
+		//If the player is prone
 		else {
 			HandleProneMovement(Value);
 		}
@@ -1107,9 +1119,11 @@ void ACodeAICharacter::MoveForward(float Value)
 void ACodeAICharacter::HandleVerticalCrouch(float Value)
 {
 	if (Value != VerticalCrouchMov) {
+		//If the registered value changes, clear the timer
 		GetWorld()->GetTimerManager().ClearTimer(CrouchHandle);
 		UpdateRotation(HorizontalCrouchMov, VerticalCrouchMov);
 		if (!(Value == 0.f && VerticalCrouchMov == 0.f)) {
+			//If the player tries to move for a certain amount of time, trigger prone
 			GetWorld()->GetTimerManager().SetTimer(CrouchHandle, this, &ACodeAICharacter::PrepareProne, CrouchWait, false);
 		}
 	}
@@ -1139,10 +1153,12 @@ void ACodeAICharacter::MoveRight(float Value)
 						// add movement in that direction
 						AddMovementInput(Direction, Value);
 
+						//Reset "illegal" movement
 						if (NoMov != 0.f) {
 							NoMov = 0.f;
 						}
 					}
+
 					if (Value == 0.f && !TopDownCamera->IsActive()) {
 						ToggleCamera(true);
 						if (NoMov != 0.f) {
@@ -1151,15 +1167,18 @@ void ACodeAICharacter::MoveRight(float Value)
 					}
 					RightMov = Value;
 				}
+
 				//If the player is crouching
 				else if (bIsCrouching) {
 					HandleHorizontalCrouch(Value);
 				}
 			}
+			//If the player is prone
 			else {
 				HandleProneRotation(Value);
 			}
 		}
+		//If the player is using the menu
 		else {
 			HandleMenuInput(Value);
 		}
@@ -1169,10 +1188,11 @@ void ACodeAICharacter::MoveRight(float Value)
 void ACodeAICharacter::HandleHorizontalCrouch(float Value)
 {
 	if (Value != HorizontalCrouchMov) {
+		//If the registered value changes, clear the timer
 		GetWorld()->GetTimerManager().ClearTimer(CrouchHandle);
 		UpdateRotation(HorizontalCrouchMov, VerticalCrouchMov);
 		if (!(Value == 0.f && VerticalCrouchMov == 0.f)) {
-			GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red, TEXT("No Timer"));
+			//If the player tries to move for a certain amount of time, trigger prone
 			GetWorld()->GetTimerManager().SetTimer(CrouchHandle, this, &ACodeAICharacter::PrepareProne, CrouchWait, false);
 		}
 	}
@@ -1216,10 +1236,12 @@ void ACodeAICharacter::ToogleCharacterControls(bool bAllow)
 {
 	bAllowMovement = bAllow;
 
+	//Movement controls
 	if (bAllowMovement) {
 		bUseControllerRotationYaw = false;
 		GetCharacterMovement()->bOrientRotationToMovement = true;
 	}
+	//Firing controls
 	else {
 		GetCharacterMovement()->bOrientRotationToMovement = false;
 		bUseControllerRotationYaw = true;

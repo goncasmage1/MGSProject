@@ -198,12 +198,15 @@ public:
 	void LowerWeapon();
 	void ShootWeapon();
 	void SufferHoldUp();
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Weapon", ExposeOnSpawn = true), Category = Weapon)
-		class AWeaponItem* Weapon;
+
+	class AWeaponItem* Weapon;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Weapon)
+		TSubclassOf<class AWeaponItem> WeaponClass;
 	UPROPERTY(BlueprintReadOnly, Category = Weapon)
 		bool bIsPistolEquipped;
 	UPROPERTY(BlueprintReadOnly, Category = Weapon)
 		bool bIsRifleEquipped;
+
 	FORCEINLINE bool GetIsAiming() const { return bIsAiming; }
 	
 };

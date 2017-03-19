@@ -57,7 +57,8 @@ void AMyAICharacter::BeginPlay()
 		//PawnSensingComp->OnSeePawn.AddDynamic(this, &AMyAICharacter::OnSeePlayer);
 		PawnSensingComp->OnHearNoise.AddDynamic(this, &AMyAICharacter::OnHearNoise);
 	}
-	if (Weapon) {
+	if (WeaponClass) {
+		Weapon = GetWorld()->SpawnActor<AWeaponItem>(WeaponClass, GetActorTransform());
 		Weapon->AIEquip(this);
 		if (Weapon->IsPistol()) {
 			bIsPistolEquipped = true;
