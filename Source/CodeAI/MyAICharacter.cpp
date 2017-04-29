@@ -54,7 +54,6 @@ void AMyAICharacter::BeginPlay()
 
 	//Register the function that is going to fire when the character sees a Pawn
 	if (PawnSensingComp) {
-		//PawnSensingComp->OnSeePawn.AddDynamic(this, &AMyAICharacter::OnSeePlayer);
 		PawnSensingComp->OnHearNoise.AddDynamic(this, &AMyAICharacter::OnHearNoise);
 	}
 	if (WeaponClass) {
@@ -236,7 +235,7 @@ void AMyAICharacter::DetectPlayer(class AAnAIController* AICon, APawn * Pawn)
 		AimWeapon();
 		ChasingPawn->AddEnemy(this);
 		if (AudioMan) {
-			AudioMan->IncrementEnemies();
+			AudioMan->AddEnemy(this);
 		}
 	}
 }
@@ -435,7 +434,7 @@ void AMyAICharacter::OnDeath()
 	bIsDead = true;
 	LowerWeapon();
 	if (AudioMan) {
-		AudioMan->DecrementEnemies();
+		AudioMan->RemoveEnemy(this);
 	}
 }
 

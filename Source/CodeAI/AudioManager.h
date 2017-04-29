@@ -19,7 +19,7 @@ private:
 	UPROPERTY(EditAnywhere)
 		TArray<USoundBase*> SoundTracks;
 
-	uint32 EnemiesNum;
+	TArray<class AMyAICharacter*> Enemies;
 	
 public:	
 
@@ -33,7 +33,9 @@ public:
 	//Called when the player is no longer in view of the enemy
 	void OnPlayerLost();
 
-	void IncrementEnemies();
-	void DecrementEnemies();
+	//Called when an enemy spots the player
+	void AddEnemy(class AMyAICharacter* AIChar);
+	//Called when an enemy loses the player from his sight
+	void RemoveEnemy(class AMyAICharacter* AIChar);
 	
 };

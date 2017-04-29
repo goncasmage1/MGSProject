@@ -2,6 +2,7 @@
 
 #include "CodeAI.h"
 #include "AudioManager.h"
+#include "MyAICharacter.h"
 
 
 // Sets default values
@@ -12,8 +13,6 @@ AAudioManager::AAudioManager()
 
 	AudioComp_1 = CreateDefaultSubobject<UAudioComponent>("AudioComponent 1");
 	AudioComp_2 = CreateDefaultSubobject<UAudioComponent>("AudioComponent 2");
-
-	EnemiesNum = 0;
 }
 
 // Called when the game starts or when spawned
@@ -39,28 +38,26 @@ void AAudioManager::OnPlayerFound()
 void AAudioManager::OnPlayerLost()
 {
 	if (SoundTracks.Num() > 0) {
-		AudioComp_2->FadeOut(.75f, 0.f);
+		AudioComp_2->FadeOut(0.75f, 0.f);
 		AudioComp_1->Sound = SoundTracks[0];
-		AudioComp_1->FadeIn(1.f);
+		AudioComp_1->FadeIn(2.f);
 	}
 }
 
-void AAudioManager::IncrementEnemies()
+void AAudioManager::AddEnemy(AMyAICharacter* AIChar)
 {
-	if (EnemiesNum == 0) {
+	if (Enemies.Num() == 0) {
 		OnPlayerFound();
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, TEXT("Player Attacked"));
 	}
-	EnemiesNum++;
+	Enemies.AddUnique(AIChar);
 }
 
-void AAudioManager::DecrementEnemies()
+void AAudioManager::RemoveEnemy(AMyAICharacter* AIChar)
 {
-	if (EnemiesNum > 0) {
-		EnemiesNum--;
-		if (EnemiesNum == 0) {
+	if (Enemies.Num() > 0) {
+		Enemies.Remove(AIChar);
+		if (Enemies.Num() == 0) {
 			OnPlayerLost();
-			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, TEXT("Player Lost"));
 		}
 	}
 }

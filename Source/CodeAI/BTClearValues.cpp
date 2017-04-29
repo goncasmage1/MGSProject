@@ -12,6 +12,7 @@ EBTNodeResult::Type UBTClearValues::ExecuteTask(UBehaviorTreeComponent & OwnerCo
 	if (AICon) {
 		if (AICon->GetState() == EAIState::AI_ChasingTarget) {
 			AICon->NotifyAudioManager();
+			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("Removed Enemy"));
 		}
 		AICon->SetState(EAIState::AI_Patrolling);
 		AICon->SetSlowSpeed(true);

@@ -80,6 +80,10 @@ private:
 	UPROPERTY(EditDefaultsOnly)
 		TArray<UAnimationAsset*> DeathAnimations;
 
+	//List of animations to pick from randomly
+	UPROPERTY(EditDefaultsOnly)
+		TArray<UAnimationAsset*> ProneDeathAnimations;
+
 	UPROPERTY(EditDefaultsOnly)
 		TArray<UAnimSequence*> StaggerAnimations;
 

@@ -209,7 +209,7 @@ void AAnAIController::NotifyAudioManager()
 {
 	AMyAICharacter* AICharacter = Cast<AMyAICharacter>(GetPawn());
 	if (AICharacter) {
-		AICharacter->AudioMan->DecrementEnemies();
+		AICharacter->AudioMan->RemoveEnemy(AICharacter);
 	}
 }
 

@@ -2,6 +2,6 @@ TO DO:
 
 	- Add first MGS level
 	- Finish radar (crop textures out of the minimap's range)
-	- Crouching mechanic
+	- Crouching mechanic (proper animations missing)
 	- Staggering mechanic
 	- Intro cutscene

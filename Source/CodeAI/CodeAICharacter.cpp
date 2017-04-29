@@ -113,7 +113,7 @@ ACodeAICharacter::ACodeAICharacter()
 	MenuTimer = 0.f;
 	MenuHeldDownTime = 0.2f;
 	CrouchWait = 0.2f;
-	ProneMovement = 0.5f;
+	ProneMovement = 0.35f;
 	CoverPeakDistance = 60.f;
 
 	MaxHealth = 100.f;
@@ -525,6 +525,26 @@ void ACodeAICharacter::UpdateRotation(float NewHor, float NewVer)
 	}
 }
 
+void ACodeAICharacter::PrepareCrouch()
+{
+	bAllowMovement = false;
+	GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Green, TEXT("Unprone"));
+	if (bItemEquipped) {
+		//Unequip the item if it is a weapon
+		AWeaponItem* Weapon = Cast<AWeaponItem>(InventoryArray[EquippedIndex]);
+		if (Weapon) {
+			Weapon->CancelUse();
+		}
+	}
+	/*
+	if (CrouchMontage) {
+		GetMesh()->PlayAnimation((UAnimationAsset*)CrouchMontage, false);
+	}
+	GetWorldTimerManager().SetTimer(AnimationHandle, this, &ACodeAICharacter::FinishProne, CrouchMontageLength);
+	*/
+	FinishProne();
+}
+
 void ACodeAICharacter::PrepareProne()
 {
 	bAllowMovement = false;
@@ -547,38 +567,20 @@ void ACodeAICharacter::PrepareProne()
 
 void ACodeAICharacter::StartProne()
 {
-	GetMesh()->Stop();
+	//GetMesh()->Stop();
 	bIsProne = true;
 	bAllowMovement = true;
+	GetCharacterMovement()->bOrientRotationToMovement = false;
 	HorizontalCrouchMov = 0.f;
 	VerticalCrouchMov = 0.f;
 }
 
-void ACodeAICharacter::PrepareCrouch()
-{
-	bAllowMovement = false;
-	GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Green, TEXT("Unprone"));
-	if (bItemEquipped) {
-		//Unequip the item if it is a weapon
-		AWeaponItem* Weapon = Cast<AWeaponItem>(InventoryArray[EquippedIndex]);
-		if (Weapon) {
-			Weapon->CancelUse();
-		}
-	}
-	/*
-	if (CrouchMontage) {
-		GetMesh()->PlayAnimation((UAnimationAsset*)CrouchMontage, false);
-	}
-	GetWorldTimerManager().SetTimer(AnimationHandle, this, &ACodeAICharacter::FinishProne, CrouchMontageLength);
-	*/
-	FinishProne();
-}
-
 void ACodeAICharacter::FinishProne()
 {
-	GetMesh()->Stop();
+	//GetMesh()->Stop();
 	bIsProne = false;
 	bAllowMovement = true;
+	GetCharacterMovement()->bOrientRotationToMovement = true;
 	HorizontalCrouchMov = 0.f;
 	VerticalCrouchMov = 0.f;
 }
@@ -799,7 +801,7 @@ float ACodeAICharacter::TakeDamage(float DamageAmount, FDamageEvent const & Dama
 			return DamageAmount;
 		}
 		else {
-			OnDeath();			
+			OnDeath();	
 			Health = 0.f;
 			HUDHealth = 0.f;
 			return (DamageAmount);
@@ -819,27 +821,44 @@ void ACodeAICharacter::OnDeath()
 			}
 		}
 	}
-	if (PlayerDead) {
+	if (PlayerDead)
+	{
 		UGameplayStatics::PlaySound2D(GetWorld(), PlayerDead);
 	}
+
 	AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
-	if (MyPC) {
+	if (MyPC)
+	{
 		MyPC->ShowDeathMenu();
 	}
 	SwitchToDeathCamera();
 
-	if (bItemEquipped) {
+	if (bItemEquipped)
+	{
 		//Unequip the item if it is a weapon
 		AWeaponItem* Weapon = Cast<AWeaponItem>(InventoryArray[EquippedIndex]);
-		if (Weapon) {
+		if (Weapon)
+		{
 			Weapon->CancelUse();
 		}
 	}
 
 	//Play random death animation
-	if (DeathAnimations.Num() > 0) {
-		int Random = FMath::RandRange(0, DeathAnimations.Num() - 1);
-		GetMesh()->PlayAnimation(DeathAnimations[Random], false);
+	if (!bIsProne)
+	{
+		if (DeathAnimations.Num() > 0)
+		{
+			int Random = FMath::RandRange(0, DeathAnimations.Num() - 1);
+			GetMesh()->PlayAnimation(DeathAnimations[Random], false);
+		}
+	}
+	else
+	{
+		if (ProneDeathAnimations.Num() > 0)
+		{
+			int Random = FMath::RandRange(0, ProneDeathAnimations.Num() - 1);
+			GetMesh()->PlayAnimation(ProneDeathAnimations[Random], false);
+		}
 	}
 }
 
@@ -903,7 +922,7 @@ void ACodeAICharacter::MoveBlockedBy(const FHitResult & Impact)
 {
 	Super::MoveBlockedBy(Impact);
 
-	if (!bIsInCover && NoMov == 0.f) {
+	if (!bIsInCover && !bIsProne && NoMov == 0.f) {
 
 		AMGSCube* Cube = Cast<AMGSCube>(Impact.GetActor());
 		if (Cube) {
@@ -1201,8 +1220,7 @@ void ACodeAICharacter::HandleHorizontalCrouch(float Value)
 
 void ACodeAICharacter::HandleProneRotation(float Value)
 {
-	GEngine->AddOnScreenDebugMessage(-1, .2f, FColor::Red, TEXT("Rotating"));
-	SetActorRotation(GetActorRotation() + FRotator(0.f, 2.5f * Value, 0.f));
+	SetActorRotation(GetActorRotation() + FRotator(0.f, Value, 0.f));
 }
 
 void ACodeAICharacter::HandleMenuInput(float Value)
