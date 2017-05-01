@@ -32,7 +32,7 @@ public:
 		virtual void OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult) override;
 
 	UFUNCTION(BlueprintImplementableEvent, Category = ItemName)
-		void UpdateText(bool bAmmoFull);
+		void UpdateText(bool bSuccess, bool bHasWeapon);
 
 	FName GetWeaponName();
 

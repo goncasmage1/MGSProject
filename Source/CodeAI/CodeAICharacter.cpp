@@ -102,6 +102,9 @@ ACodeAICharacter::ACodeAICharacter()
 	bIsStaggering = false;
 	bIsDead = false;
 
+	bOctoCamoTransition = false;
+	bFirstChange = true;
+
 	EquippedIndex = ExtraIndex = 0;
 	PreviousIndex = -1;
 
@@ -115,6 +118,10 @@ ACodeAICharacter::ACodeAICharacter()
 	CrouchWait = 0.2f;
 	ProneMovement = 0.35f;
 	CoverPeakDistance = 60.f;
+
+	ScanWaitTime = 1.5f;
+	TextureTransitionSpeed = 2.f;
+	bTransitionTextureIndex = 0;
 
 	MaxHealth = 100.f;
 	Health = MaxHealth;
@@ -140,6 +147,8 @@ void ACodeAICharacter::BeginPlay()
 	{
 		AllEnemies.Add(*ActorItr);
 	}
+
+	SetupMaterials();
 }
 
 void ACodeAICharacter::Tick(float DeltaTime)
@@ -150,18 +159,119 @@ void ACodeAICharacter::Tick(float DeltaTime)
 		HandleCoverLogic();
 		HandleCoverLineTrace();
 	}
-	if (!bLeftMenuOpen && bLeftMenuPressed) {
+	if (!bLeftMenuOpen && bLeftMenuPressed)
+	{
 		MenuTimer += DeltaTime;
-		if (MenuTimer >= MenuHeldDownTime) {
+		if (MenuTimer >= MenuHeldDownTime)
+		{
 			ShowLeftMenu();
 			MenuTimer = 0.f;
 		}
+	}
+	if (!bOctoCamoTransition)
+	{
+		CheckOctoCamo();
+	}
+	else
+	{
+		HandleOctoCamoTransition(DeltaTime);
 	}
 	/*
 	if (!bAllowMovement && !bUsingFPP) {
 		HandlePlayerRotation();
 	}
 	*/
+}
+
+void ACodeAICharacter::SetupMaterials()
+{
+	MIDs.Add(GetMesh()->CreateAndSetMaterialInstanceDynamic(0));
+	MIDs.Add(GetMesh()->CreateAndSetMaterialInstanceDynamic(1));
+}
+
+void ACodeAICharacter::ApplyMaterialTransition()
+{
+	TextureLineTrace(bIsInCover);
+	//If the newly scanned texture is different, apply texture changes;
+	if (PreviousTexture != TransitionTexture)
+	{
+		bOctoCamoTransition = true;
+		if (bTransitionTextureIndex)
+		{
+			bTransitionTextureIndex--;
+			MIDs[0]->SetTextureParameterValue(FName("Transition Texture 2"), TransitionTexture);
+		}
+		else
+		{
+			bTransitionTextureIndex++;
+			MIDs[0]->SetTextureParameterValue(FName("Transition Texture 1"), TransitionTexture);
+		}
+	}
+}
+
+void ACodeAICharacter::HandleOctoCamoTransition(float DeltaTime)
+{
+	//Set the alpha parameter's name
+	FName AlphaName = bFirstChange ? FName("Main Texture Alpha") : FName("Transition Texture Alpha");
+
+	float Alpha;
+	MIDs[0]->GetScalarParameterValue(AlphaName, Alpha);
+	float NewAlpha = bTransitionTextureIndex ? Alpha + (TextureTransitionSpeed * DeltaTime) : Alpha - (TextureTransitionSpeed * DeltaTime);
+
+	if (bTransitionTextureIndex && NewAlpha > 1.f)
+	{
+		NewAlpha = 1.f;
+		bOctoCamoTransition = false;
+		bFirstChange = false;
+	}
+	else if (!bTransitionTextureIndex && NewAlpha < 0.f)
+	{
+		NewAlpha = 0.f;
+		bOctoCamoTransition = false;
+		bFirstChange = false;
+	} 
+	MIDs[0]->SetScalarParameterValue(AlphaName, NewAlpha);
+}
+
+void ACodeAICharacter::CheckOctoCamo()
+{
+	/*Start timer when player stays still while in cover or prone
+	Stop timer when player moves or is not in cover or prone*/
+	if ((bIsInCover || bIsProne) && GetVelocity().Size() == 0 && !(GetWorld()->GetTimerManager().IsTimerActive(OctoCamoHandle)))
+	{
+		GetWorld()->GetTimerManager().SetTimer(OctoCamoHandle, this, &ACodeAICharacter::ApplyMaterialTransition, ScanWaitTime);
+	}
+	else if (!((bIsInCover || bIsProne) && GetVelocity().Size() == 0))
+	{
+		GetWorld()->GetTimerManager().ClearTimer(OctoCamoHandle);
+	}
+}
+
+bool ACodeAICharacter::TextureLineTrace(bool bStanding)
+{
+	FVector Start, End;
+	FHitResult Hit;
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(this);
+
+	PreviousTexture = TransitionTexture;
+
+	Start = GetActorLocation();
+
+	/*If the player is standing, trace to the back of the player (player in cover),
+	otherwise, trace down (player is prone)*/
+	End = bStanding ? Start - (GetActorForwardVector() * 100.f) : Start - (GetActorUpVector() * 100.f);
+
+	if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECollisionChannel::ECC_WorldDynamic, QueryParams)) {
+		UStaticMeshComponent* TraceMesh = Cast<UStaticMeshComponent>(Hit.GetComponent());
+		if (TraceMesh)
+		{
+			TraceMesh->GetMaterials()[0]->GetTextureParameterValue(FName("OctoCamo Texture"), TransitionTexture);
+			return true;
+		}
+	}
+
+	return false;
 }
 
 void ACodeAICharacter::HandlePlayerRotation()
@@ -665,13 +775,13 @@ bool ACodeAICharacter::AddAmmoItem(AAmmoItem * AmmoItem)
 		if (Weapon && Weapon->GetItemName() == AmmoItem->GetWeaponName()) {
 			//If the weapon has full ammo, the player can't pickup the AmmoItem
 			if (Weapon->MagsAreFull()) {
-				AmmoItem->UpdateText(true);
+				AmmoItem->UpdateText(false, true);
 				return false;
 			}
 
 			else {
 				Weapon->AddAmmo(AmmoItem->GetQuantity());
-				AmmoItem->UpdateText(false);
+				AmmoItem->UpdateText(true, true);
 				//AmmoItem->DestroyComponents();
 
 				//Update weapon's ammo on the UI
@@ -683,6 +793,7 @@ bool ACodeAICharacter::AddAmmoItem(AAmmoItem * AmmoItem)
 			}
 		}
 	}
+	AmmoItem->UpdateText(false, false);
 	return false;
 }
 
@@ -1081,7 +1192,14 @@ void ACodeAICharacter::LookUpAtRate(float Rate)
 
 void ACodeAICharacter::MouseTurnX(float Rate)
 {
-	XRate = Rate;
+	if (!bIsInCover)
+	{
+		XRate = Rate;
+	}
+	else
+	{
+		XRate = 0.f;
+	}
 }
 
 void ACodeAICharacter::MouseTurnY(float Rate)
@@ -1092,6 +1210,7 @@ void ACodeAICharacter::MouseTurnY(float Rate)
 void ACodeAICharacter::MoveForward(float Value)
 {
 	if (bAllowMovement) {
+
 		if (!bIsProne) {
 			if (Controller != NULL && !bIsCrouching) {
 
@@ -1145,6 +1264,10 @@ void ACodeAICharacter::HandleVerticalCrouch(float Value)
 			//If the player tries to move for a certain amount of time, trigger prone
 			GetWorld()->GetTimerManager().SetTimer(CrouchHandle, this, &ACodeAICharacter::PrepareProne, CrouchWait, false);
 		}
+		else
+		{
+			GetWorld()->GetTimerManager().ClearTimer(CrouchHandle);
+		}
 	}
 	VerticalCrouchMov = Value;
 }
@@ -1158,6 +1281,7 @@ void ACodeAICharacter::MoveRight(float Value)
 {
 	if (bAllowMovement) {
 		if (!bLeftMenuOpen) {
+
 			if (!bIsProne) {
 				if (Controller != NULL && !bIsCrouching) {
 					if (HorizontalCrouchMov != 0.f) {
@@ -1214,6 +1338,10 @@ void ACodeAICharacter::HandleHorizontalCrouch(float Value)
 			//If the player tries to move for a certain amount of time, trigger prone
 			GetWorld()->GetTimerManager().SetTimer(CrouchHandle, this, &ACodeAICharacter::PrepareProne, CrouchWait, false);
 		}
+		else
+		{
+			GetWorld()->GetTimerManager().ClearTimer(CrouchHandle);
+		}
 	}
 	HorizontalCrouchMov = Value;
 }
@@ -1266,4 +1394,5 @@ void ACodeAICharacter::ToogleCharacterControls(bool bAllow)
 		Controller->SetControlRotation(GetActorRotation());
 	}
 }
+
 

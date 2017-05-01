@@ -10,3 +10,7 @@ Saved
 *.suo
 *.xcodeproj
 *.xcworkspace
+Content/Audio/Cavern.uasset
+Content/Audio/Encounter.uasset
+Content/Audio/Encounter.wav
+Content/Audio/Cavern.wav

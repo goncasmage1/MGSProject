@@ -417,6 +417,29 @@ private:
 	//Determines whether the player should add the picked up item to the inventory
 	uint8 bShouldAddItem : 1;
 
+
+	/******************************************
+	*		OCTOCAMO
+	******************************************/
+
+	//Time until the octocamo scans the environment
+	float ScanWaitTime;
+	float TextureTransitionSpeed;
+
+	//Indicates whether to consider a texture transition
+	uint8 bOctoCamoTransition;
+	uint8 bTransitionTextureIndex;
+	/*Indicates whether to change between main texture and transition texture
+	or between two transition textures*/
+	uint8 bFirstChange;
+
+	FTimerHandle OctoCamoHandle;
+
+	TArray<UMaterialInstanceDynamic*> MIDs;
+
+	UTexture* TransitionTexture;
+	UTexture* PreviousTexture;
+
 protected:
 
 	/******************************************
@@ -435,58 +458,41 @@ protected:
 	*/
 	void ToogleCharacterControls(bool bAllow);
 
+	//Setups the material to allow OctoCamo functionality
+	void SetupMaterials();
+
+	void ApplyMaterialTransition();
+	void HandleOctoCamoTransition(float DeltaTime);
+	//Checks if the necessary conditions for OctoCamo to start scanning are met
+	void CheckOctoCamo();
+	bool TextureLineTrace(bool bStanding);
+
 	//Handles the player's rotation when using a weapon
 	void HandlePlayerRotation();
 
-	//Called when the player presses the left menu button
 	void PressedLeftMenu();
-
-	//Called when the player holds the left menu button
 	void ShowLeftMenu();
-
-	//Called when the player releases the left menu button
 	void HideLeftMenu();
 
-	//Called when the player presses the right menu button
 	void PressedRightMenu();
-
-	//Called when the player holds the right menu button
 	void ShowRightMenu();
-
-	//Called when the player releases the right menu button
 	void HideRightMenu();
 
-	//Called when the action button is pressed
 	void ActionPressed();
-
-	//Called when the action button is released
 	void ActionReleased();
 
-	//Called when the use button is pressed
 	void UsePressed();
-
-	//Called when the use button is released
 	void UseReleased();
 
-	//Called when the reload button is pressed
 	void ReloadPressed();
-
-	//Called when the reload button is released
 	void ReloadReleased();
 
-	//Called when the First Person Perspective button is pressed
 	void FPPPressed();
-
-	//Called when the First Person Perspective button is released
 	void FPPReleased();
 
-	//Called when the Pause button is pressed
 	void PausePressed();
 
-	//Called when the crouch button is pressed
 	void CrouchPressed();
-
-	//Called when the crouch button is released
 	void CrouchReleased();
 
 	//Updates the player's rotation (used when crouching)
@@ -498,11 +504,11 @@ protected:
 	//Change the variables to start prone
 	void StartProne();
 
-	//Make the proper changes to allow prone to crouching functionality
-	void PrepareCrouch();
-
 	//When the prone animation is finished
 	void FinishProne();
+
+	//Make the proper changes to allow prone to crouching functionality
+	void PrepareCrouch();
 
 	//Handle the staggering mechanic
 	void HandleStagger();
