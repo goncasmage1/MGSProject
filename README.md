@@ -1,11 +1,13 @@
 MGSProject is an Unreal Engine project created by me with the intent of implementing
-basic functionality from the original Metal Gear Solid for the PS1.
+basic functionality from the Metal Gear Solid franchise.
 
 As of now the functionality includes:
   - Cover mechanic
-  - Inventory and Items
-  - Basic AI
+  - Crouch and prone mechanic
+  - Inventory system
+  - Basic AI patrolling and attacking
   - Radar System
+  - OctoCamo mechanic
  
 There is a ToDo list if you want to contribute.
 
