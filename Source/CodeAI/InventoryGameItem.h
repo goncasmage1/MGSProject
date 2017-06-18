@@ -33,8 +33,14 @@ public:
 
 	virtual void UseItemPressed(bool bShouldHoldUp);
 	virtual void UseItemReleased(bool bShouldStop);
-	UFUNCTION(BlueprintImplementableEvent, Category = Item)
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Item)
 		void MenuUse();
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Weapon)
+		void Equip();
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Weapon)
+		void Unequip();
 
 	UTexture2D* GetItemTexture();
 	

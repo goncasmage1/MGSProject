@@ -96,11 +96,13 @@ ACodeAICharacter::ACodeAICharacter()
 
 	bShouldAddItem = true;
 	bAllowMovement = true;
+	bIsUsingItem = false;
 	bIsCrouching = false;
 	bIsCrouchPressed = false;
 	bIsProne = false;
 	bIsStaggering = false;
 	bIsDead = false;
+	bIsInCameraSection = false;
 
 	bOctoCamoTransition = false;
 	bFirstChange = true;
@@ -109,11 +111,12 @@ ACodeAICharacter::ACodeAICharacter()
 	PreviousIndex = -1;
 
 	WalkSpeedDecrease = 3.f;
+	PrevYaw = -1.f;
+	RotationDeadAngle = 3.f;
 	CoverSpeedDecrease = 2.5f;
 	ForwardMov = RightMov = NoMov = 0.f;
 	HorizontalCrouchMov = VerticalCrouchMov = 0.f;
 	XRate = YRate = 0.f;
-	MenuTimer = 0.f;
 	MenuHeldDownTime = 0.2f;
 	CrouchWait = 0.2f;
 	ProneMovement = 0.35f;
@@ -155,19 +158,13 @@ void ACodeAICharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	//Cover logic
 	if (bIsInCover) {
 		HandleCoverLogic();
 		HandleCoverLineTrace();
 	}
-	if (!bLeftMenuOpen && bLeftMenuPressed)
-	{
-		MenuTimer += DeltaTime;
-		if (MenuTimer >= MenuHeldDownTime)
-		{
-			ShowLeftMenu();
-			MenuTimer = 0.f;
-		}
-	}
+
+	//OctoCamo
 	if (!bOctoCamoTransition)
 	{
 		CheckOctoCamo();
@@ -176,11 +173,11 @@ void ACodeAICharacter::Tick(float DeltaTime)
 	{
 		HandleOctoCamoTransition(DeltaTime);
 	}
-	/*
-	if (!bAllowMovement && !bUsingFPP) {
+
+	//Player Rotation while firing
+	if (!bAllowMovement) {
 		HandlePlayerRotation();
 	}
-	*/
 }
 
 void ACodeAICharacter::SetupMaterials()
@@ -276,8 +273,37 @@ bool ACodeAICharacter::TextureLineTrace(bool bStanding)
 
 void ACodeAICharacter::HandlePlayerRotation()
 {
-	if (YRate != 0.f && XRate != 0.f) {
-		SetActorRotation(GetControlRotation());
+	if (!bUsingFPP)
+	{
+		float MousePosX;
+		float MousePosY;
+
+		AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
+
+		if (MyPC->GetMousePosition(MousePosX, MousePosY))
+		{
+			//Convert character location to 2D space
+			FVector2D CharPos2D;
+			MyPC->ProjectWorldLocationToScreen(GetActorLocation(), CharPos2D);
+
+			FVector2D Result;
+			Result.X = -(MousePosY - CharPos2D.Y);
+			Result.Y = MousePosX - CharPos2D.X;
+
+			float Angle = FMath::RadiansToDegrees(FMath::Acos(Result.X / Result.Size()));
+			if (Result.Y < 0.f)
+			{
+				Angle = 360.f - Angle;
+			}
+
+			FRotator NewRot(0.f, Angle, 0.f);
+
+			SetActorRotation(NewRot);
+		}
+	}
+	else
+	{
+		AddControllerYawInput(XRate);
 	}
 }
 
@@ -406,6 +432,7 @@ void ACodeAICharacter::PressedLeftMenu()
 {
 	if (!bIsDead) {
 		bLeftMenuPressed = true;
+		GetWorld()->GetTimerManager().SetTimer(MenuTimerHandle, this, &ACodeAICharacter::ShowLeftMenu, MenuHeldDownTime, false);
 	}
 }
 
@@ -426,42 +453,51 @@ void ACodeAICharacter::HideLeftMenu()
 {
 	bLeftMenuPressed = false;
 	bAllowNavigation = true;
-	MenuTimer = 0.f;
+
+	GetWorld()->GetTimerManager().ClearTimer(MenuTimerHandle);
+
 	AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
 
 	//If the menu was opened (button was held)
-	if (bLeftMenuOpen) {
+	if (bLeftMenuOpen)
+	{
 		bLeftMenuOpen = false;
-		if (MyPC) {
+		if (MyPC)
+		{
 			MyPC->ToogleLeftMenu();
 		}
 	}
+
 	//If the item was toggled (button was simply pressed)
-	else {
-		if (bItemEquipped) {
+	else if (EquippedIndex > 0)
+	{
+		if (bItemEquipped)
+		{
 			bItemEquipped = false;
+
 			//Play sound
-			if (ItemEquip) {
+			if (ItemUnequip)
+			{
 				UGameplayStatics::PlaySound2D(GetWorld(), ItemUnequip);
 			}
-			//Unequip the item if it is a weapon
-			AWeaponItem* Weapon = Cast<AWeaponItem>(InventoryArray[EquippedIndex]);
-			if (Weapon) {
-				Weapon->Unequip();
-			}
+
+			InventoryArray[EquippedIndex]->Unequip();
 		}
-		else {
+		else
+		{
 			bItemEquipped = true;
+
 			//Play sound
-			if (ItemUnequip) {
+			if (ItemEquip)
+			{
 				UGameplayStatics::PlaySound2D(GetWorld(), ItemEquip);
 			}
-			AWeaponItem* Weapon = Cast<AWeaponItem>(InventoryArray[EquippedIndex]);
-			if (Weapon) {
-				Weapon->Equip();
-			}
+
+			InventoryArray[EquippedIndex]->Equip();
+
 		}
-		if (MyPC) {
+		if (MyPC)
+		{
 			MyPC->ToogleCurrentItem();
 		}
 	}
@@ -517,14 +553,19 @@ void ACodeAICharacter::ActionReleased()
 
 void ACodeAICharacter::UsePressed()
 {
+	bIsUsingItem = true;
 	if (bItemEquipped) {
 		InventoryArray[EquippedIndex]->UseItemPressed(true);
-		ToogleCharacterControls(false);
+		if (!bUsingFPP)
+		{
+			ToogleCharacterControls(false);
+		}
 	}
 }
 
 void ACodeAICharacter::UseReleased()
 {
+	bIsUsingItem = false;
 	if ((bItemEquipped || !bAllowMovement)) {
 		if (!bAllowMovement) {
 			InventoryArray[EquippedIndex]->UseItemReleased(true);
@@ -560,17 +601,38 @@ void ACodeAICharacter::FPPPressed()
 {
 	if (!bIsDead) {
 		bUsingFPP = true;
-		if (TopDownCamera->IsActive()) {
+
+		bUseControllerRotationYaw = true;
+
+		//If the player is inside a Camera Section, set the player as the view target
+		if (SectionCamera)
+		{
+			AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
+			if (MyPC)
+			{
+				MyPC->SetViewTarget(this);
+			}
+		}
+
+		if (TopDownCamera->IsActive())
+		{
 			TopDownCamera->Deactivate();
 		}
-		else if (LeftCamera->IsActive()) {
+		else if (LeftCamera->IsActive())
+		{
 			LeftCamera->Deactivate();
 		}
-		else if (RightCamera->IsActive()) {
+		else if (RightCamera->IsActive())
+		{
 			RightCamera->Deactivate();
 		}
 		FPPCamera->Activate();
-		ToogleCharacterControls(false);
+
+		//Only toggle controls if character isn't already movement restricted
+		if (bAllowMovement)
+		{
+			ToogleCharacterControls(false);
+		}
 	}
 }
 
@@ -578,9 +640,32 @@ void ACodeAICharacter::FPPReleased()
 {
 	if (!bIsDead) {
 		bUsingFPP = false;
+
+		AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
+		//If the player is inside a Camera Section, set the SectionCamera as the view target
+		if (SectionCamera)
+		{
+			if (MyPC)
+			{
+				MyPC->SetViewTarget(SectionCamera);
+			}
+		}
+
 		FPPCamera->Deactivate();
 		TopDownCamera->Activate();
-		ToogleCharacterControls(true);
+		
+		//If the player is already aiming, simply show mouse cursor
+		if (!bIsUsingItem)
+		{
+			ToogleCharacterControls(true);
+		}
+		else if (MyPC)
+		{
+			FInputModeGameAndUI NewInput;
+			MyPC->SetInputMode(NewInput);
+			MyPC->bShowMouseCursor = true;
+			bUseControllerRotationYaw = false;
+		}
 	}
 }
 
@@ -603,7 +688,10 @@ void ACodeAICharacter::CrouchPressed()
 			PrepareCrouch();
 		}
 		//If the player holds the crouch button, enter prone
-		GetWorld()->GetTimerManager().SetTimer(CrouchHandle, this, &ACodeAICharacter::PrepareProne, CrouchWait, false);
+		if (bIsCrouching)
+		{
+			GetWorld()->GetTimerManager().SetTimer(CrouchHandle, this, &ACodeAICharacter::PrepareProne, CrouchWait, false);
+		}
 	}
 }
 
@@ -616,7 +704,7 @@ void ACodeAICharacter::CrouchReleased()
 	}
 }
 
-void ACodeAICharacter::UpdateRotation(float NewHor, float NewVer)
+void ACodeAICharacter::UpdateCrouchRotation(float NewHor, float NewVer)
 {
 	if (NewHor != 0.f || NewVer != 0.f) {
 		FRotator NewRot = GetActorRotation();
@@ -638,7 +726,7 @@ void ACodeAICharacter::UpdateRotation(float NewHor, float NewVer)
 void ACodeAICharacter::PrepareCrouch()
 {
 	bAllowMovement = false;
-	GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Green, TEXT("Unprone"));
+	
 	if (bItemEquipped) {
 		//Unequip the item if it is a weapon
 		AWeaponItem* Weapon = Cast<AWeaponItem>(InventoryArray[EquippedIndex]);
@@ -849,33 +937,38 @@ void ACodeAICharacter::EquipWeapon(class AWeaponItem* WeaponItem)
 {
 	WeaponItem->Equip();
 	bPistolEquipped = WeaponItem->IsPistol() ? true : false;
-	bRifleEquipped = WeaponItem->IsPistol() ? false : true;
+	bRifleEquipped = !bPistolEquipped;
 }
 
 void ACodeAICharacter::SetEquippedIndex(int32 Index)
 {
 	if (PreviousIndex != Index) {
-		//If the previously equipped item was a weapon, unequip it
-		AWeaponItem* PreviousWeapon = Cast<AWeaponItem>(InventoryArray[PreviousIndex]);
-		if (PreviousWeapon) {
-			PreviousWeapon->Unequip();
+
+		if (PreviousIndex > 0)
+		{
+			InventoryArray[PreviousIndex]->Unequip();
 		}
 
-		//If the newly equipped item is a weapon, equip it
-		AWeaponItem* NewWeapon = Cast<AWeaponItem>(InventoryArray[Index]);
-		if (NewWeapon) {
-			NewWeapon->Equip();
-		}
-
-		if (Index == 0) {
-			UGameplayStatics::PlaySound2D(GetWorld(), ItemUnequip);
+		if (Index < 1) {
+			if (ItemUnequip)
+			{
+				UGameplayStatics::PlaySound2D(GetWorld(), ItemUnequip);
+			}
 		}
 		else {
-			UGameplayStatics::PlaySound2D(GetWorld(), ItemEquip);
+			if (ItemEquip)
+			{
+				UGameplayStatics::PlaySound2D(GetWorld(), ItemEquip);
+			}
 			if (!bItemEquipped) {
 				bItemEquipped = true;
 			}
+			InventoryArray[Index]->Equip();
 		}
+	}
+	else
+	{
+		UGameplayStatics::PlaySound2D(GetWorld(), ItemEquip);
 	}
 }
 
@@ -1057,24 +1150,59 @@ void ACodeAICharacter::MoveBlockedBy(const FHitResult & Impact)
 
 void ACodeAICharacter::ToggleCamera(bool bDefaultCamera, bool bLeftCamera)
 {
-	if (bDefaultCamera) {
-		if (LeftCamera->IsActive()) {
-			LeftCamera->Deactivate();
+	if (!SectionCamera)
+	{
+		if (bDefaultCamera)
+		{
+			if (LeftCamera->IsActive())
+			{
+				LeftCamera->Deactivate();
+			}
+			else if (RightCamera->IsActive())
+			{
+				RightCamera->Deactivate();
+			}
+			TopDownCamera->Activate();
 		}
-		else if (RightCamera->IsActive()) {
-			RightCamera->Deactivate();
-		}
-		TopDownCamera->Activate();
-	}
-	else {
-		TopDownCamera->Deactivate();
+		else
+		{
+			TopDownCamera->Deactivate();
 
-		if (bLeftCamera) {
-			LeftCamera->Activate();
+			if (bLeftCamera)
+			{
+				LeftCamera->Activate();
+			}
+			else
+			{
+				RightCamera->Activate();
+			}
 		}
-		else {
-			RightCamera->Activate();
+	}
+}
+
+void ACodeAICharacter::EnterCameraSection(ACameraActor * Camera)
+{
+	bIsInCameraSection = true;
+
+	AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
+	if (MyPC)
+	{
+		MyPC->SetViewTarget(Camera);
+	}
+	SectionCamera = Camera;
+}
+
+void ACodeAICharacter::ExitCameraSection(ACameraActor * Camera)
+{
+	if (Camera == SectionCamera)
+	{
+		AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
+		if (MyPC)
+		{
+			MyPC->SetViewTarget(this);
 		}
+		bIsInCameraSection = false;
+		SectionCamera = nullptr;
 	}
 }
 
@@ -1126,7 +1254,7 @@ void ACodeAICharacter::SetupPlayerInputComponent(class UInputComponent* inputCom
 	// "turnrate" is for devices that we choose to treat as a rate of change, such as an analog joystick
 	
 	
-	inputComponent->BindAxis("Turn", this, &ACodeAICharacter::AddControllerYawInput);
+	inputComponent->BindAxis("Turn", this, &ACodeAICharacter::MouseTurnX);
 	//inputComponent->BindAxis("TurnRate", this, &ACodeAICharacter::TurnAtRate);
 	inputComponent->BindAxis("LookUp", this, &ACodeAICharacter::MouseTurnY);
 	//inputComponent->BindAxis("LookUpRate", this, &ACodeAICharacter::LookUpAtRate);
@@ -1138,7 +1266,6 @@ void ACodeAICharacter::Walk()
 	bIsWalking = true;
 
 	GetCharacterMovement()->MaxWalkSpeed /= WalkSpeedDecrease;
-
 }
 
 void ACodeAICharacter::StopWalking()
@@ -1192,14 +1319,7 @@ void ACodeAICharacter::LookUpAtRate(float Rate)
 
 void ACodeAICharacter::MouseTurnX(float Rate)
 {
-	if (!bIsInCover)
-	{
-		XRate = Rate;
-	}
-	else
-	{
-		XRate = 0.f;
-	}
+	XRate = Rate;
 }
 
 void ACodeAICharacter::MouseTurnY(float Rate)
@@ -1259,7 +1379,7 @@ void ACodeAICharacter::HandleVerticalCrouch(float Value)
 	if (Value != VerticalCrouchMov) {
 		//If the registered value changes, clear the timer
 		GetWorld()->GetTimerManager().ClearTimer(CrouchHandle);
-		UpdateRotation(HorizontalCrouchMov, VerticalCrouchMov);
+		UpdateCrouchRotation(HorizontalCrouchMov, VerticalCrouchMov);
 		if (!(Value == 0.f && VerticalCrouchMov == 0.f)) {
 			//If the player tries to move for a certain amount of time, trigger prone
 			GetWorld()->GetTimerManager().SetTimer(CrouchHandle, this, &ACodeAICharacter::PrepareProne, CrouchWait, false);
@@ -1333,7 +1453,7 @@ void ACodeAICharacter::HandleHorizontalCrouch(float Value)
 	if (Value != HorizontalCrouchMov) {
 		//If the registered value changes, clear the timer
 		GetWorld()->GetTimerManager().ClearTimer(CrouchHandle);
-		UpdateRotation(HorizontalCrouchMov, VerticalCrouchMov);
+		UpdateCrouchRotation(HorizontalCrouchMov, VerticalCrouchMov);
 		if (!(Value == 0.f && VerticalCrouchMov == 0.f)) {
 			//If the player tries to move for a certain amount of time, trigger prone
 			GetWorld()->GetTimerManager().SetTimer(CrouchHandle, this, &ACodeAICharacter::PrepareProne, CrouchWait, false);
@@ -1386,12 +1506,26 @@ void ACodeAICharacter::ToogleCharacterControls(bool bAllow)
 	if (bAllowMovement) {
 		bUseControllerRotationYaw = false;
 		GetCharacterMovement()->bOrientRotationToMovement = true;
+
+		AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
+		if (MyPC)
+		{
+			MyPC->bShowMouseCursor = false;
+			FInputModeGameOnly NewInput;
+			MyPC->SetInputMode(NewInput);
+		}
 	}
 	//Firing controls
 	else {
 		GetCharacterMovement()->bOrientRotationToMovement = false;
-		bUseControllerRotationYaw = true;
-		Controller->SetControlRotation(GetActorRotation());
+		
+		AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
+		if (MyPC)
+		{
+			MyPC->bShowMouseCursor = true;
+			FInputModeGameAndUI NewInput;
+			MyPC->SetInputMode(NewInput);
+		}
 	}
 }
 

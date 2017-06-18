@@ -5,21 +5,9 @@ using System.Collections.Generic;
 
 public class CodeAITarget : TargetRules
 {
-	public CodeAITarget(TargetInfo Target)
-	{
+	public CodeAITarget(TargetInfo Target) : base(Target)
+    {
 		Type = TargetType.Game;
-	}
-
-	//
-	// TargetRules interface.
-	//
-
-	public override void SetupBinaries(
-		TargetInfo Target,
-		ref List<UEBuildBinaryConfiguration> OutBuildBinaryConfigurations,
-		ref List<string> OutExtraModuleNames
-		)
-	{
-		OutExtraModuleNames.Add("CodeAI");
-	}
+        ExtraModuleNames.AddRange(new string[] { "CodeAI" });
+    }
 }

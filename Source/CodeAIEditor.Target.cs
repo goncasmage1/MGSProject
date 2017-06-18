@@ -5,21 +5,9 @@ using System.Collections.Generic;
 
 public class CodeAIEditorTarget : TargetRules
 {
-	public CodeAIEditorTarget(TargetInfo Target)
-	{
+	public CodeAIEditorTarget(TargetInfo Target) : base(Target)
+    {
 		Type = TargetType.Editor;
-	}
-
-	//
-	// TargetRules interface.
-	//
-
-	public override void SetupBinaries(
-		TargetInfo Target,
-		ref List<UEBuildBinaryConfiguration> OutBuildBinaryConfigurations,
-		ref List<string> OutExtraModuleNames
-		)
-	{
-		OutExtraModuleNames.Add("CodeAI");
-	}
+        ExtraModuleNames.AddRange(new string[] { "CodeAI" });
+    }
 }

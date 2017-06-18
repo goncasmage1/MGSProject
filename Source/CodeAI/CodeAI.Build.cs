@@ -4,8 +4,8 @@ using UnrealBuildTool;
 
 public class CodeAI : ModuleRules
 {
-	public CodeAI(TargetInfo Target)
-	{
+	public CodeAI(ReadOnlyTargetRules ROTargetRules) : base(ROTargetRules)
+    {
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore" , "AIModule", "UMG", "Slate", "SlateCore" , "GameplayTasks"});
 	}
 }

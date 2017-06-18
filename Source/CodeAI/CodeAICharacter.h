@@ -127,6 +127,18 @@ public:
 
 
 	/******************************************
+	*		CAMERA SECTION
+	******************************************/
+
+	uint8 bIsInCameraSection;
+
+	ACameraActor* SectionCamera;
+
+	void EnterCameraSection(ACameraActor* Camera);
+	void ExitCameraSection(ACameraActor * Camera);
+
+
+	/******************************************
 	*		ITEMS
 	******************************************/
 
@@ -272,6 +284,10 @@ private:
 	float XRate;
 	//Registers the Y component of the mouse control
 	float YRate;
+	//Keeps track of the previous Yaw from the player rotation
+	float PrevYaw;
+	//The dead angle for the player rotation
+	float RotationDeadAngle;
 
 	//Used to time the crouch movement
 	FTimerHandle CrouchHandle;
@@ -306,6 +322,9 @@ private:
 
 	//Determines whether the player can move or not
 	uint8 bAllowMovement : 1;
+
+	//Determines whether the player is using an item
+	uint8 bIsUsingItem : 1;
 
 	//Determines whether the player is crouching
 	uint8 bIsCrouching : 1;
@@ -363,9 +382,10 @@ private:
 	* The amount of time the player has to hold down the menu button
 	* in order for the menu to pop up
 	*/
-	float MenuTimer;
 	UPROPERTY(EditAnywhere)
 		float MenuHeldDownTime;
+
+	FTimerHandle MenuTimerHandle;
 
 	//Determines whether the left menu is open or closed
 	uint8 bLeftMenuOpen : 1;
@@ -496,7 +516,7 @@ protected:
 	void CrouchReleased();
 
 	//Updates the player's rotation (used when crouching)
-	void UpdateRotation(float NewHor, float NewVer);
+	void UpdateCrouchRotation(float NewHor, float NewVer);
 
 	//Make the proper changes to allow crouching to prone functionality
 	void PrepareProne();

@@ -31,6 +31,7 @@ void AWeaponItem::Tick(float DeltaSeconds)
 	if (bIsAimed) {
 		FVector Start = GunMesh->GetSocketLocation(TEXT("MuzzleSocket"));
 		FVector Player = Owner->GetActorForwardVector();
+		GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Green, FString::Printf(TEXT("%s"), *Player.ToString()));
 		FVector End = Start + FVector(Player.X, Player.Y, 0.f)* 1000.f;
 		DrawDebugLine(GetWorld(), Start, End, FColor::Red, false, -1.f, 0, 2.f);
 	}

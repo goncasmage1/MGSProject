@@ -86,11 +86,6 @@ public:
 	void SetOwner(AActor* NewOwner) override;
 	FORCEINLINE AActor* GetOwner() { return Owner; }
 
-	UFUNCTION(BlueprintImplementableEvent, Category = Weapon)
-		void Equip();
-	UFUNCTION(BlueprintImplementableEvent, Category = Weapon)
-		void Unequip();
-
 	void AIEquip(class AMyAICharacter* AIChar);
 
 	void UseItemPressed(bool bShouldHoldUp) override;
