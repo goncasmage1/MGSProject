@@ -167,7 +167,8 @@ public:
 	//Equip the selected weapon
 	void EquipWeapon(class AWeaponItem* WeaponItem);
 
-	//Called from the Menu widget to set the new index according to the equipped item
+	/*Called from the Menu widget when the menu is closed
+	to set the new index according to the equipped item*/
 	UFUNCTION(BlueprintCallable, Category = Item)
 		void SetEquippedIndex(int32 Index);
 
@@ -268,8 +269,10 @@ private:
 
 	//Indicates the index of the currently equipped item
 	int32 EquippedIndex;
+
 	//Indicates the index of the previously equipped item
 	int32 PreviousIndex;
+
 	//Used to keep track of menu navigation
 	int32 ExtraIndex;
 
@@ -280,12 +283,16 @@ private:
 
 	//Indicates the factor at which the player's speed decreases when walking
 	float WalkSpeedDecrease;
+
 	//Registers the X component of the mouse control
 	float XRate;
+
 	//Registers the Y component of the mouse control
 	float YRate;
+
 	//Keeps track of the previous Yaw from the player rotation
 	float PrevYaw;
+
 	//The dead angle for the player rotation
 	float RotationDeadAngle;
 
@@ -359,17 +366,22 @@ private:
 
 	//Registers the character's forward movement on tick
 	float ForwardMov;
+
 	//Registers the character's right movement on tick
 	float RightMov;
+
 	//Registers the amount of movement that is "illegal" while in cover
 	float NoMov;
 
 	//Determines whether the player is in cover
 	uint8 bIsInCover : 1;
+
 	//Determines when to exit cover from a forward movement
 	uint8 bShouldBeInCoverForward : 1;
+
 	//Determines when to exit cover from a right movement
 	uint8 bShouldBeInCoverRight : 1;
+
 	//Determines which direction the NoMov applies to
 	uint8 bNoMovForward : 1;
 
@@ -389,14 +401,19 @@ private:
 
 	//Determines whether the left menu is open or closed
 	uint8 bLeftMenuOpen : 1;
+
 	//Determines whether the right menu is open or closed
 	uint8 bRightMenuOpen : 1;
+
 	//Determines whether the player pressed the left menu button
 	uint8 bLeftMenuPressed : 1;
+
 	//Determines whether the player is holding down the menu button
 	uint8 bHeldDownMenu : 1;
-	//Determines whether the player can navigate through the inventory
+
+	//Determines whether the player can move
 	uint8 bAllowNavigation : 1;
+
 	//Determines whether the player is using a First Person Camera
 	uint8 bUsingFPP : 1;
 
@@ -428,12 +445,13 @@ private:
 	*		ITEMS
 	******************************************/
 
-	//Whether the player has a pistol equipped
 	uint8 bPistolEquipped : 1;
-	//Whether the player has a rifle equipped
+
 	uint8 bRifleEquipped : 1;
+
 	//Determines whether an item is equipped or not
 	uint8 bItemEquipped : 1;
+
 	//Determines whether the player should add the picked up item to the inventory
 	uint8 bShouldAddItem : 1;
 
@@ -444,14 +462,17 @@ private:
 
 	//Time until the octocamo scans the environment
 	float ScanWaitTime;
+
 	float TextureTransitionSpeed;
 
 	//Indicates whether to consider a texture transition
-	uint8 bOctoCamoTransition;
-	uint8 bTransitionTextureIndex;
+	uint8 bOctoCamoTransition : 1;
+
+	uint8 bTransitionTextureIndex : 1;
+
 	/*Indicates whether to change between main texture and transition texture
 	or between two transition textures*/
-	uint8 bFirstChange;
+	uint8 bFirstChange : 1;
 
 	FTimerHandle OctoCamoHandle;
 
@@ -482,10 +503,16 @@ protected:
 	void SetupMaterials();
 
 	void ApplyMaterialTransition();
+
 	void HandleOctoCamoTransition(float DeltaTime);
+
 	//Checks if the necessary conditions for OctoCamo to start scanning are met
 	void CheckOctoCamo();
+
 	bool TextureLineTrace(bool bStanding);
+
+	UFUNCTION(BlueprintCallable)
+		void ToogleNVGMaterial(bool bActivateNVG);
 
 	//Handles the player's rotation when using a weapon
 	void HandlePlayerRotation();
@@ -521,7 +548,6 @@ protected:
 	//Make the proper changes to allow crouching to prone functionality
 	void PrepareProne();
 
-	//Change the variables to start prone
 	void StartProne();
 
 	//When the prone animation is finished
@@ -558,15 +584,19 @@ protected:
 
 	/** Called for forwards/backward input */
 	void MoveForward(float Value);
+
 	//Handle the vertical portion of crouching
 	void HandleVerticalCrouch(float Value);
+
 	//Handle the prone movement
 	void HandleProneMovement(float Value);
 
 	/** Called for side to side input */
 	void MoveRight(float Value);
+
 	//Handle the horizontal portion of crouching
 	void HandleHorizontalCrouch(float Value);
+
 	//Handle the prone rotation
 	void HandleProneRotation(float Value);
 

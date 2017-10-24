@@ -9,6 +9,7 @@
 #include "WeaponItem.h"
 #include "StackableGameItem.h"
 #include "AmmoItem.h"
+#include "NightVisionGoogles.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Kismet/KismetMathLibrary.h"
 
@@ -152,6 +153,14 @@ void ACodeAICharacter::BeginPlay()
 	}
 
 	SetupMaterials();
+
+	AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
+	if (MyPC)
+	{
+		MyPC->bShowMouseCursor = true;
+		FInputModeGameAndUI NewInput;
+		MyPC->SetInputMode(NewInput);
+	}
 }
 
 void ACodeAICharacter::Tick(float DeltaTime)
@@ -176,7 +185,14 @@ void ACodeAICharacter::Tick(float DeltaTime)
 
 	//Player Rotation while firing
 	if (!bAllowMovement) {
-		HandlePlayerRotation();
+		if (!bUsingFPP)
+		{
+			HandlePlayerRotation();
+		}
+		else
+		{
+			AddControllerYawInput(XRate);
+		}
 	}
 }
 
@@ -214,7 +230,6 @@ void ACodeAICharacter::HandleOctoCamoTransition(float DeltaTime)
 	float Alpha;
 	MIDs[0]->GetScalarParameterValue(AlphaName, Alpha);
 	float NewAlpha = bTransitionTextureIndex ? Alpha + (TextureTransitionSpeed * DeltaTime) : Alpha - (TextureTransitionSpeed * DeltaTime);
-
 	if (bTransitionTextureIndex && NewAlpha > 1.f)
 	{
 		NewAlpha = 1.f;
@@ -271,39 +286,44 @@ bool ACodeAICharacter::TextureLineTrace(bool bStanding)
 	return false;
 }
 
-void ACodeAICharacter::HandlePlayerRotation()
+void ACodeAICharacter::ToogleNVGMaterial(bool bActivateNVG)
 {
-	if (!bUsingFPP)
+	if (bActivateNVG)
 	{
-		float MousePosX;
-		float MousePosY;
-
-		AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
-
-		if (MyPC->GetMousePosition(MousePosX, MousePosY))
-		{
-			//Convert character location to 2D space
-			FVector2D CharPos2D;
-			MyPC->ProjectWorldLocationToScreen(GetActorLocation(), CharPos2D);
-
-			FVector2D Result;
-			Result.X = -(MousePosY - CharPos2D.Y);
-			Result.Y = MousePosX - CharPos2D.X;
-
-			float Angle = FMath::RadiansToDegrees(FMath::Acos(Result.X / Result.Size()));
-			if (Result.Y < 0.f)
-			{
-				Angle = 360.f - Angle;
-			}
-
-			FRotator NewRot(0.f, Angle, 0.f);
-
-			SetActorRotation(NewRot);
-		}
+		MIDs[0]->SetScalarParameterValue(FName("NVG"), 0);
 	}
 	else
 	{
-		AddControllerYawInput(XRate);
+		MIDs[0]->SetScalarParameterValue(FName("NVG"), 1);
+	}
+}
+
+void ACodeAICharacter::HandlePlayerRotation()
+{
+	float MousePosX;
+	float MousePosY;
+
+	AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
+
+	if (MyPC->GetMousePosition(MousePosX, MousePosY))
+	{
+		//Convert character location to 2D space
+		FVector2D CharPos2D;
+		MyPC->ProjectWorldLocationToScreen(GetActorLocation(), CharPos2D);
+
+		FVector2D Result;
+		Result.X = -(MousePosY - CharPos2D.Y);
+		Result.Y = MousePosX - CharPos2D.X;
+
+		float Angle = FMath::RadiansToDegrees(FMath::Acos(Result.X / Result.Size()));
+		if (Result.Y < 0.f)
+		{
+			Angle = 360.f - Angle;
+		}
+
+		FRotator NewRot(0.f, Angle, 0.f);
+
+		SetActorRotation(NewRot);
 	}
 }
 
@@ -466,6 +486,10 @@ void ACodeAICharacter::HideLeftMenu()
 		{
 			MyPC->ToogleLeftMenu();
 		}
+		if (EquippedIndex > 0)
+		{
+			bItemEquipped = true;
+		}
 	}
 
 	//If the item was toggled (button was simply pressed)
@@ -560,6 +584,12 @@ void ACodeAICharacter::UsePressed()
 		{
 			ToogleCharacterControls(false);
 		}
+		AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
+		if (MyPC && !bUsingFPP)
+		{
+			FInputModeGameAndUI NewInput;
+			MyPC->SetInputMode(NewInput);
+		}
 	}
 }
 
@@ -602,18 +632,20 @@ void ACodeAICharacter::FPPPressed()
 	if (!bIsDead) {
 		bUsingFPP = true;
 
+		FPPCamera->SetWorldRotation(GetActorRotation());
 		bUseControllerRotationYaw = true;
 
+		AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
 		//If the player is inside a Camera Section, set the player as the view target
 		if (SectionCamera)
 		{
-			AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
 			if (MyPC)
 			{
 				MyPC->SetViewTarget(this);
 			}
 		}
 
+		//Switch camera
 		if (TopDownCamera->IsActive())
 		{
 			TopDownCamera->Deactivate();
@@ -633,6 +665,10 @@ void ACodeAICharacter::FPPPressed()
 		{
 			ToogleCharacterControls(false);
 		}
+		if (MyPC)
+		{
+			MyPC->bShowMouseCursor = false;
+		}
 	}
 }
 
@@ -640,6 +676,8 @@ void ACodeAICharacter::FPPReleased()
 {
 	if (!bIsDead) {
 		bUsingFPP = false;
+
+		bUseControllerRotationYaw = false;
 
 		AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
 		//If the player is inside a Camera Section, set the SectionCamera as the view target
@@ -659,12 +697,9 @@ void ACodeAICharacter::FPPReleased()
 		{
 			ToogleCharacterControls(true);
 		}
-		else if (MyPC)
+		if (MyPC)
 		{
-			FInputModeGameAndUI NewInput;
-			MyPC->SetInputMode(NewInput);
 			MyPC->bShowMouseCursor = true;
-			bUseControllerRotationYaw = false;
 		}
 	}
 }
@@ -681,6 +716,8 @@ void ACodeAICharacter::CrouchPressed()
 {
 	if (bAllowMovement) {
 		bIsCrouchPressed = true;
+
+		bool bWasProne = bIsProne;
 		if (!bIsProne) {
 			bIsCrouching = !bIsCrouching;
 		}
@@ -688,7 +725,7 @@ void ACodeAICharacter::CrouchPressed()
 			PrepareCrouch();
 		}
 		//If the player holds the crouch button, enter prone
-		if (bIsCrouching)
+		if (bIsCrouching && !bWasProne)
 		{
 			GetWorld()->GetTimerManager().SetTimer(CrouchHandle, this, &ACodeAICharacter::PrepareProne, CrouchWait, false);
 		}
@@ -746,7 +783,6 @@ void ACodeAICharacter::PrepareCrouch()
 void ACodeAICharacter::PrepareProne()
 {
 	bAllowMovement = false;
-	GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Green, TEXT("Prone"));
 	if (bItemEquipped) {
 		//Unequip the item if it is a weapon
 		AWeaponItem* Weapon = Cast<AWeaponItem>(InventoryArray[EquippedIndex]);
@@ -1506,26 +1542,10 @@ void ACodeAICharacter::ToogleCharacterControls(bool bAllow)
 	if (bAllowMovement) {
 		bUseControllerRotationYaw = false;
 		GetCharacterMovement()->bOrientRotationToMovement = true;
-
-		AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
-		if (MyPC)
-		{
-			MyPC->bShowMouseCursor = false;
-			FInputModeGameOnly NewInput;
-			MyPC->SetInputMode(NewInput);
-		}
 	}
 	//Firing controls
 	else {
 		GetCharacterMovement()->bOrientRotationToMovement = false;
-		
-		AMyPlayerController* MyPC = Cast<AMyPlayerController>(GetController());
-		if (MyPC)
-		{
-			MyPC->bShowMouseCursor = true;
-			FInputModeGameAndUI NewInput;
-			MyPC->SetInputMode(NewInput);
-		}
 	}
 }
 

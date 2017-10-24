@@ -46,8 +46,11 @@ protected:
 
 private:
 
-	class UPlayerUI* PlayerUIRef;
-	class UPauseMenuWidget* PauseMenuRef;
-	class UDeathMenuWidget* DeathMenuRef;
+	UPROPERTY()
+		class UPlayerUI* PlayerUIRef;
+	UPROPERTY()
+		class UPauseMenuWidget* PauseMenuRef;
+	UPROPERTY()
+		class UDeathMenuWidget* DeathMenuRef;
 	
 };

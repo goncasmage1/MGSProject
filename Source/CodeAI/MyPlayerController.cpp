@@ -7,6 +7,7 @@
 #include "DeathMenuWidget.h"
 #include "ItemWidget.h"
 #include "CodeAICharacter.h"
+#include "Blueprint/UserWidget.h"
 
 void AMyPlayerController::Possess(APawn* InPawn)
 {
