@@ -20,7 +20,7 @@ class CODEAI_API AMyPlayerController : public APlayerController
 	
 public:
 
-	virtual void Possess(APawn* InPawn) override;
+	virtual void OnPossess(APawn* InPawn) override;
 	void ToogleLeftMenu();
 	void ToogleCurrentItem();
 	UFUNCTION(BlueprintCallable, Category = PauseMenu)

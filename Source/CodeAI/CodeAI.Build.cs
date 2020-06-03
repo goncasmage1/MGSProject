@@ -6,6 +6,6 @@ public class CodeAI : ModuleRules
 {
 	public CodeAI(ReadOnlyTargetRules ROTargetRules) : base(ROTargetRules)
     {
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore" , "AIModule", "UMG", "Slate", "SlateCore" , "GameplayTasks"});
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore" , "AIModule", "NavigationSystem", "UMG", "Slate", "SlateCore" , "GameplayTasks"});
 	}
 }

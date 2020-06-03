@@ -19,7 +19,7 @@ ACameraSection::ACameraSection()
 	BC_BoxComp->OnComponentBeginOverlap.AddDynamic(this, &ACameraSection::OnOverlapBegin);
 	BC_BoxComp->OnComponentEndOverlap.AddDynamic(this, &ACameraSection::OnOverlapEnd);
 	BC_BoxComp->SetupAttachment(SceneComp);
-	BC_BoxComp->bGenerateOverlapEvents = true;
+	BC_BoxComp->SetGenerateOverlapEvents(true);
 
 	bFollowPlayer = false;
 

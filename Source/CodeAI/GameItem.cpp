@@ -23,7 +23,7 @@ AGameItem::AGameItem()
 	BC_BoxComp = CreateDefaultSubobject<UBoxComponent>(TEXT("Item Collision Box"));
 	BC_BoxComp->OnComponentBeginOverlap.AddDynamic(this, &AGameItem::OnOverlapBegin);
 	BC_BoxComp->SetupAttachment(SM_ItemPickup);
-	BC_BoxComp->bGenerateOverlapEvents = true;
+	BC_BoxComp->SetGenerateOverlapEvents(true);
 
 	TextWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("Text Widget"));
 	TextWidget->SetWidgetSpace(EWidgetSpace::Screen);
@@ -74,7 +74,7 @@ void AGameItem::OnOverlapBegin(UPrimitiveComponent * OverlappedComp, AActor * Ot
 		if (Success) {
 			SM_ItemPickup->SetVisibility(false);
 			SM_ItemPickup->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-			BC_BoxComp->bGenerateOverlapEvents = false;
+			BC_BoxComp->SetGenerateOverlapEvents(false);
 			if (ItemPickedUpSound) {
 				UGameplayStatics::PlaySoundAtLocation(GetWorld(), ItemPickedUpSound, GetActorLocation());
 			}

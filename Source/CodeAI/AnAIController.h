@@ -56,7 +56,7 @@ public:
 	AAnAIController();
 
 	/*Executes right when the controller possess a Pawn*/
-	virtual void Possess(APawn* Pawn) override;
+	virtual void OnPossess(APawn* Pawn) override;
 
 	void SetState(EAIState NewState);
 	EAIState GetState() const;

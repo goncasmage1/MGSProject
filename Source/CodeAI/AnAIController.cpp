@@ -17,9 +17,9 @@ AAnAIController::AAnAIController()
 	BlackboardComp = CreateDefaultSubobject<UBlackboardComponent>(TEXT("BlackboardComp"));
 }
 
-void AAnAIController::Possess(APawn* pawn)
+void AAnAIController::OnPossess(APawn* pawn)
 {
-	Super::Possess(pawn);
+	Super::OnPossess(pawn);
 
 	//Get the possessed Pawn. If it's the AI Character we created
 	//initialize it's blackboard and start it's corresponding behavior tree

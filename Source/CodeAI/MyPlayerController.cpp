@@ -9,9 +9,9 @@
 #include "CodeAICharacter.h"
 #include "Blueprint/UserWidget.h"
 
-void AMyPlayerController::Possess(APawn* InPawn)
+void AMyPlayerController::OnPossess(APawn* InPawn)
 {
-	Super::Possess(InPawn);
+	Super::OnPossess(InPawn);
 
 	if (PlayerUIBP){
 		//Create the Inventory Widget based on the Blueprint reference we will input from within the Editor

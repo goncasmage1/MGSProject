@@ -78,7 +78,7 @@ void AWeaponItem::AIEquip(class AMyAICharacter* AIChar)
 	AIChar->AddWeapon(this);
 	SM_ItemPickup->SetVisibility(false);
 	SM_ItemPickup->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	BC_BoxComp->bGenerateOverlapEvents = false;
+	BC_BoxComp->SetGenerateOverlapEvents(false);
 	GunMesh->SetVisibility(true);
 	Owner = AIChar;
 }

@@ -5,7 +5,7 @@
 #include "AnAIController.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "Kismet/KismetMathLibrary.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "NavigationSystem.h"
 
 EBTNodeResult::Type UBTLookRotation::ExecuteTask(UBehaviorTreeComponent & OwnerComp, uint8 * NodeMemory)
 {
@@ -29,7 +29,7 @@ EBTNodeResult::Type UBTLookRotation::ExecuteTask(UBehaviorTreeComponent & OwnerC
 		}
 		//Finds a random point in the NavMesh and moves to that point
 		else {
-			UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());
+			UNavigationSystemV1* NavSys = UNavigationSystemV1::GetCurrent(GetWorld());
 			FNavLocation NavLoc;
 			
 			if (NavSys->GetRandomPointInNavigableRadius(AICon->GetPawn()->GetActorLocation(), 4000.f, NavLoc)) {
